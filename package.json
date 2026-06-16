@@ -1,0 +1,10 @@
+{
+  "name": "moduroom",
+  "version": "1.0.0",
+  "description": "ModuRoom Platform",
+  "main": "run_tests.js",
+  "scripts": {
+    "dev": "node server.js"
+  },
+  "dependencies": {}
+}
