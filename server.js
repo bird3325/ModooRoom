@@ -332,6 +332,21 @@ const htmlTemplate = `
             justify-content: space-between;
             align-items: center;
         }
+
+        /* 드롭다운 메뉴 스타일 */
+        .dropdown-item {
+            display: block;
+            padding: 10px 15px;
+            color: #4a5568;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: var(--transition-smooth);
+        }
+        .dropdown-item:hover {
+            background-color: #edf2f7;
+            color: var(--primary-deep-navy);
+        }
     </style>
 </head>
 <body>
@@ -343,27 +358,22 @@ const htmlTemplate = `
                 <i class="fa-solid fa-house-chimney-window"></i>
                 <span>모두의 방</span>
             </div>
-            
-            <div class="role-selector">
-                <button class="role-btn active" id="btn-login-owner" onclick="setLoginRole('owner')">임대인 모드</button>
-                <button class="role-btn" id="btn-login-tenant" onclick="setLoginRole('tenant')">임차인(세입자) 모드</button>
-            </div>
 
-            <h3 style="text-align: center; margin-bottom: 25px; color: var(--primary-deep-navy);" id="login-title">임대인 파트너 로그인</h3>
+            <h3 style="text-align: center; margin-bottom: 25px; color: var(--primary-deep-navy);" id="login-title">로그인</h3>
             
             <form onsubmit="handleLogin(event)">
                 <div class="form-group">
                     <label>이메일 주소</label>
-                    <input type="email" id="login-email" class="form-control" required value="owner@moduroom.com">
+                    <input type="email" id="login-email" class="form-control" required value="user@moduroom.com">
                 </div>
                 <div class="form-group">
                     <label>비밀번호</label>
                     <input type="password" id="login-password" class="form-control" required value="password123">
                 </div>
-                <button type="submit" class="btn-auth" id="btn-login-submit">임대인으로 로그인</button>
+                <button type="submit" class="btn-auth" id="btn-login-submit">로그인</button>
             </form>
             <div class="auth-switch">
-                아직 파트너가 아니신가요? <a href="#" onclick="showView('signup')">회원가입하기</a>
+                아직 회원이 아니신가요? <a href="#" onclick="showView('signup')">회원가입하기</a>
             </div>
         </div>
     </div>
@@ -375,13 +385,8 @@ const htmlTemplate = `
                 <i class="fa-solid fa-house-chimney-window"></i>
                 <span>모두의 방</span>
             </div>
-            
-            <div class="role-selector">
-                <button class="role-btn active" id="btn-signup-owner" onclick="setSignupRole('owner')">임대인 가입</button>
-                <button class="role-btn" id="btn-signup-tenant" onclick="setSignupRole('tenant')">임차인 가입</button>
-            </div>
 
-            <h3 style="text-align: center; margin-bottom: 25px; color: var(--primary-deep-navy);" id="signup-title">임대인 파트너 회원가입</h3>
+            <h3 style="text-align: center; margin-bottom: 25px; color: var(--primary-deep-navy);" id="signup-title">회원가입</h3>
             
             <form onsubmit="handleSignup(event)">
                 <div class="form-group">
@@ -396,10 +401,169 @@ const htmlTemplate = `
                     <label>비밀번호</label>
                     <input type="password" id="signup-password" class="form-control" required placeholder="최소 8자리 이상">
                 </div>
-                <button type="submit" class="btn-auth" id="btn-signup-submit">임대인 회원가입 완료</button>
+                <button type="submit" class="btn-auth" id="btn-signup-submit">회원가입 완료</button>
             </form>
             <div class="auth-switch">
                 이미 가입하셨나요? <a href="#" onclick="showView('login')">로그인하기</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 인증 전 메인 뷰 추가 -->
+    <div id="main-app" class="hidden">
+        <nav class="navbar">
+            <div class="navbar-brand">
+                <i class="fa-solid fa-house-chimney-window"></i>
+                <span>모두의 방 <span style="font-size:12px; color:#718096;">[환영합니다]</span></span>
+            </div>
+            <div class="user-profile" style="position: relative;">
+                <button id="main-display-name" class="btn-logout" style="border:none; font-weight: 500; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleUserMenu(event)">
+                    사용자님 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
+                </button>
+                <div id="user-dropdown" class="dropdown-menu hidden" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: var(--card-shadow); padding: 8px 0; min-width: 150px; z-index: 1000; margin-top: 10px;">
+                    <a href="#" class="dropdown-item" onclick="authenticateRole('owner')">임대인 인증</a>
+                    <a href="#" class="dropdown-item" onclick="authenticateRole('tenant')">임차인 인증</a>
+                    <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
+                    <a href="#" class="dropdown-item" onclick="handleLogout()" style="color: #e53e3e;">로그아웃</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="main-container">
+            <div class="dashboard-layout">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <div class="card-title"><i class="fa-solid fa-book-open"></i> 실시간 룸스토리</div>
+                        <button class="btn btn-orange" style="padding: 8px 16px; font-size: 12px;" onclick="handleWriteStory()"><i class="fa-solid fa-pen"></i> 자랑하기 (등록)</button>
+                    </div>
+                    
+                    <div class="story-feed" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <!-- 피드 카드 1 -->
+                        <div class="card story-card" style="padding: 0; overflow: hidden; position: relative; border-radius: 12px; cursor: pointer;" onclick="openStoryDetail('지현', '지현님의 아늑한 원룸', 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80', '이번에 새로 이사 온 관악구 원룸이에요! 우드톤으로 꾸며봤는데 어떤가요? 😊 혼자 살기 딱 좋은 크기에 빛도 잘 들어서 너무 마음에 듭니다.', '#원룸인테리어 #우드톤 #자취방꾸미기')">
+                            <div style="width: 100%; height: 220px; background: url('https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80') center/cover;"></div>
+                            <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); padding: 20px 15px 15px 15px; color: white;">
+                                <p style="font-size: 12px; font-weight: 500; color: var(--point-orange); margin-bottom: 4px;">#원룸인테리어 #우드톤</p>
+                                <p style="font-size: 14px; font-weight: bold;">지현님의 아늑한 원룸</p>
+                            </div>
+                        </div>
+
+                        <!-- 피드 카드 2 -->
+                        <div class="card story-card" style="padding: 0; overflow: hidden; position: relative; border-radius: 12px; cursor: pointer;" onclick="openStoryDetail('철수', '가성비 갑 미니멀 투룸', 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=800&q=80', '최대한 물건을 줄이고 미니멀하게 살아보고 있어요. 청소하기 너무 편하고 공간도 훨씬 넓어보입니다. 화이트와 그레이 톤으로 맞췄어요.', '#미니멀라이프 #모던')">
+                            <div style="width: 100%; height: 220px; background: url('https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=800&q=80') center/cover;"></div>
+                            <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); padding: 20px 15px 15px 15px; color: white;">
+                                <p style="font-size: 12px; font-weight: 500; color: var(--point-orange); margin-bottom: 4px;">#미니멀라이프 #모던</p>
+                                <p style="font-size: 14px; font-weight: bold;">가성비 갑 미니멀 투룸</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 피드 카드 3 -->
+                        <div class="card story-card" style="padding: 0; overflow: hidden; position: relative; border-radius: 12px; cursor: pointer;" onclick="openStoryDetail('유진', '햇살 가득 화이트 인테리어', 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800&q=80', '남향이라 아침부터 햇살이 쏟아지는 제 방입니다! 화이트 가구들로 배치해서 더 화사하게 꾸며보았어요.', '#채광맛집 #화이트톤')">
+                            <div style="width: 100%; height: 220px; background: url('https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800&q=80') center/cover;"></div>
+                            <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); padding: 20px 15px 15px 15px; color: white;">
+                                <p style="font-size: 12px; font-weight: 500; color: var(--point-orange); margin-bottom: 4px;">#채광맛집 #화이트톤</p>
+                                <p style="font-size: 14px; font-weight: bold;">햇살 가득 화이트 인테리어</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 피드 카드 4 -->
+                        <div class="card story-card" style="padding: 0; overflow: hidden; position: relative; border-radius: 12px; cursor: pointer;" onclick="openStoryDetail('민재', '초록초록 싱그러운 내 방', 'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&q=80', '식물 키우는 재미에 푹 빠진 식물집사입니다. 방 곳곳에 화분을 배치하니 공기도 맑아지는 기분이에요.', '#플랜테리어 #식물집사')">
+                            <div style="width: 100%; height: 220px; background: url('https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&q=80') center/cover;"></div>
+                            <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); padding: 20px 15px 15px 15px; color: white;">
+                                <p style="font-size: 12px; font-weight: 500; color: var(--point-orange); margin-bottom: 4px;">#플랜테리어 #식물집사</p>
+                                <p style="font-size: 14px; font-weight: bold;">초록초록 싱그러운 내 방</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <div class="card" style="cursor: pointer; border: 2px solid transparent;" onmouseover="this.style.borderColor='var(--primary-light-blue)'" onmouseout="this.style.borderColor='transparent'" onclick="showView('map-app')">
+                        <div class="card-title"><i class="fa-solid fa-map-location-dot"></i> 주변 공실 지도 보기</div>
+                        <p style="font-size:13px; color:#718096; margin-top:10px;">여기를 클릭하여 내 주변의 실시간 공실 매물을 지도에서 한눈에 확인하세요.</p>
+                        <button class="btn" style="margin-top: 15px; width: 100%; justify-content: center;"><i class="fa-solid fa-map"></i> 지도로 이동하기</button>
+                    </div>
+                    <div class="card">
+                        <div class="card-title"><i class="fa-solid fa-landmark"></i> 최신 부동산 정책</div>
+                        <p style="font-size:13px; color:#718096; margin-top:10px;">알아두면 유용한 최신 부동산 관련 법령 및 정책 뉴스입니다.</p>
+                        <ul style="font-size:13px; color:#4a5568; margin-top:15px; padding-left: 20px;">
+                            <li style="margin-bottom: 5px;">2024년 청년 전월세 지원 정책 업데이트</li>
+                            <li>임대차 3법 개정안 주요 내용 요약</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 공실 지도 뷰 -->
+    <div id="map-app" class="hidden">
+        <nav class="navbar">
+            <div class="navbar-brand">
+                <i class="fa-solid fa-house-chimney-window"></i>
+                <span>모두의 방 <span style="font-size:12px; color:var(--primary-light-blue);">[공실 지도]</span></span>
+            </div>
+            <div class="user-profile">
+                <button class="btn-logout" onclick="showView('main-app')"><i class="fa-solid fa-arrow-left"></i> 메인으로 돌아가기</button>
+            </div>
+        </nav>
+        
+        <div style="width: 100%; height: calc(100vh - 65px); background: #e2e8f0; position: relative; overflow: hidden;">
+            <!-- 가상 지도 플레이스홀더 (이미지) -->
+            <div style="width: 100%; height: 100%; background: url('https://upload.wikimedia.org/wikipedia/commons/b/b0/OpenStreetMap_default_map_of_Seoul.png') center/cover no-repeat; opacity: 0.9;"></div>
+            
+            <div style="position: absolute; top: 20px; left: 20px; background: white; padding: 15px; border-radius: 12px; box-shadow: var(--card-shadow); width: 300px; z-index: 10;">
+                <h3 style="font-size: 16px; margin-bottom: 10px; color: var(--primary-deep-navy);"><i class="fa-solid fa-map-location-dot"></i> 주변 공실 정보</h3>
+                <div style="padding: 10px; border-bottom: 1px solid #edf2f7; cursor: pointer;">
+                    <h4 style="font-size: 14px; margin-bottom: 5px; color: var(--point-orange);">관악구 신림동 원룸</h4>
+                    <p style="font-size: 12px; color: #718096;">보증금 1000 / 월 50<br>즉시 입주 가능 (풀옵션)</p>
+                </div>
+                <div style="padding: 10px; cursor: pointer;">
+                    <h4 style="font-size: 14px; margin-bottom: 5px; color: var(--point-orange);">마포구 서교동 투룸</h4>
+                    <p style="font-size: 12px; color: #718096;">보증금 2000 / 월 80<br>리모델링 완료, 채광 우수</p>
+                </div>
+            </div>
+            
+            <!-- 지도 핀들 -->
+            <div style="position: absolute; top: 40%; left: 45%; color: #e53e3e; font-size: 40px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); cursor: pointer;"><i class="fa-solid fa-location-dot"></i></div>
+            <div style="position: absolute; top: 55%; left: 60%; color: #e53e3e; font-size: 40px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); cursor: pointer;"><i class="fa-solid fa-location-dot"></i></div>
+        </div>
+    </div>
+
+    <!-- 룸스토리 상세 뷰 -->
+    <div id="story-detail-app" class="hidden">
+        <nav class="navbar">
+            <div class="navbar-brand">
+                <i class="fa-solid fa-house-chimney-window"></i>
+                <span>모두의 방 <span style="font-size:12px; color:var(--primary-light-blue);">[룸스토리 상세]</span></span>
+            </div>
+            <div class="user-profile">
+                <button class="btn-logout" onclick="showView('main-app')"><i class="fa-solid fa-arrow-left"></i> 뒤로가기</button>
+            </div>
+        </nav>
+        
+        <div class="main-container" style="max-width: 800px;">
+            <div class="card story-card" style="padding: 0; overflow: hidden; margin-bottom: 25px;">
+                <div style="padding: 15px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #edf2f7;">
+                    <div id="detail-avatar" class="avatar" style="width: 32px; height: 32px; font-size: 14px; background: var(--point-orange);">지현</div>
+                    <span id="detail-title" style="font-weight: 600; font-size: 14px;">지현님의 아늑한 원룸</span>
+                </div>
+                <div id="detail-image" style="width: 100%; height: 400px; background: url('https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80') center/cover;"></div>
+                <div style="padding: 20px;">
+                    <p id="detail-desc" style="font-size: 14px; margin-bottom: 10px; line-height: 1.6;">이번에 새로 이사 온 관악구 원룸이에요! 우드톤으로 꾸며봤는데 어떤가요? 😊 혼자 살기 딱 좋은 크기에 빛도 잘 들어서 너무 마음에 듭니다.</p>
+                    <p id="detail-tags" style="font-size: 13px; color: var(--primary-light-blue); margin-bottom: 20px;">#원룸인테리어 #우드톤 #자취방꾸미기</p>
+                    
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+                        <h4 style="font-size: 13px; margin-bottom: 10px; color: var(--primary-deep-navy);">댓글</h4>
+                        <div id="detail-comments-list" style="margin-bottom: 15px; font-size: 13px; color: #4a5568;">
+                            <!-- Mock comments -->
+                            <div style="margin-bottom: 8px;"><span style="font-weight: 600; color: #2d3748;">영수</span> 와 방이 너무 예뻐요! 책상은 어디 제품인가요?</div>
+                            <div style="margin-bottom: 8px;"><span style="font-weight: 600; color: #2d3748;">미희</span> 저도 우드톤 좋아하는데 참고해야겠어요.</div>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" class="form-control" placeholder="댓글을 입력하세요..." style="padding: 8px 12px; font-size: 13px;">
+                            <button class="btn btn-orange" style="padding: 8px 16px;" onclick="handleCommentSubmit()">등록</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -491,49 +655,58 @@ const htmlTemplate = `
         </div>
     </div>
 
-    <script>
-        let currentRole = 'owner';
+    <!-- 커스텀 알럿 모달 -->
+    <div id="custom-alert-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; padding: 25px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center;">
+            <i class="fa-solid fa-circle-info" style="font-size: 40px; color: var(--point-orange); margin-bottom: 15px;"></i>
+            <p id="custom-alert-message" style="font-size: 15px; color: var(--primary-deep-navy); margin-bottom: 25px; line-height: 1.5;"></p>
+            <button class="btn btn-orange" style="width: 100%; justify-content: center;" onclick="closeCustomAlert()">확인</button>
+        </div>
+    </div>
 
-        function setLoginRole(role) {
-            currentRole = role;
-            document.getElementById('btn-login-owner').classList.toggle('active', role === 'owner');
-            document.getElementById('btn-login-tenant').classList.toggle('active', role === 'tenant');
-            
-            if (role === 'owner') {
-                document.getElementById('login-title').innerText = '임대인 파트너 로그인';
-                document.getElementById('login-email').value = 'owner@moduroom.com';
-                document.getElementById('btn-login-submit').innerText = '임대인으로 로그인';
-            } else {
-                document.getElementById('login-title').innerText = '임차인 입주민 로그인';
-                document.getElementById('login-email').value = 'tenant@moduroom.com';
-                document.getElementById('btn-login-submit').innerText = '임차인으로 로그인';
-            }
+    <script>
+        let isAuthenticated = false;
+
+        function showModalAlert(message) {
+            document.getElementById('custom-alert-message').innerText = message;
+            document.getElementById('custom-alert-modal').classList.remove('hidden');
         }
 
-        function setSignupRole(role) {
-            currentRole = role;
-            document.getElementById('btn-signup-owner').classList.toggle('active', role === 'owner');
-            document.getElementById('btn-signup-tenant').classList.toggle('active', role === 'tenant');
-            
-            if (role === 'owner') {
-                document.getElementById('signup-title').innerText = '임대인 파트너 회원가입';
-                document.getElementById('btn-signup-submit').innerText = '임대인 회원가입 완료';
-            } else {
-                document.getElementById('signup-title').innerText = '임차인 입주민 회원가입';
-                document.getElementById('btn-signup-submit').innerText = '임차인 회원가입 완료';
+        function closeCustomAlert() {
+            document.getElementById('custom-alert-modal').classList.add('hidden');
+        }
+
+        // 드롭다운 외부 클릭 시 닫기
+        window.addEventListener('click', function(e) {
+            if (!document.getElementById('main-display-name').contains(e.target)) {
+                document.getElementById('user-dropdown').classList.add('hidden');
             }
+        });
+
+        function toggleUserMenu(e) {
+            e.stopPropagation();
+            document.getElementById('user-dropdown').classList.toggle('hidden');
         }
 
         function showView(viewName) {
             document.getElementById('login-view').classList.add('hidden');
             document.getElementById('signup-view').classList.add('hidden');
+            document.getElementById('main-app').classList.add('hidden');
             document.getElementById('owner-app').classList.add('hidden');
             document.getElementById('tenant-app').classList.add('hidden');
+            if(document.getElementById('map-app')) document.getElementById('map-app').classList.add('hidden');
+            if(document.getElementById('story-detail-app')) document.getElementById('story-detail-app').classList.add('hidden');
 
             if (viewName === 'login') {
                 document.getElementById('login-view').classList.remove('hidden');
             } else if (viewName === 'signup') {
                 document.getElementById('signup-view').classList.remove('hidden');
+            } else if (viewName === 'main-app') {
+                document.getElementById('main-app').classList.remove('hidden');
+            } else if (viewName === 'map-app') {
+                document.getElementById('map-app').classList.remove('hidden');
+            } else if (viewName === 'story-detail-app') {
+                document.getElementById('story-detail-app').classList.remove('hidden');
             } else if (viewName === 'owner-app') {
                 document.getElementById('owner-app').classList.remove('hidden');
                 loadInventory();
@@ -543,29 +716,68 @@ const htmlTemplate = `
             }
         }
 
+        function openStoryDetail(avatarName, title, image, desc, tags) {
+            document.getElementById('detail-avatar').innerText = avatarName;
+            document.getElementById('detail-title').innerText = title;
+            document.getElementById('detail-image').style.background = "url('" + image + "') center/cover";
+            document.getElementById('detail-desc').innerText = desc;
+            document.getElementById('detail-tags').innerText = tags;
+            showView('story-detail-app');
+        }
+
         function handleLogin(e) {
             e.preventDefault();
             const email = document.getElementById('login-email').value;
             const namePrefix = email.split('@')[0].toUpperCase();
-
-            if (currentRole === 'owner') {
-                document.getElementById('owner-display-name').innerText = namePrefix + ' 파트너';
-                showView('owner-app');
-            } else {
-                document.getElementById('tenant-display-name').innerText = namePrefix + ' 입주민';
-                showView('tenant-app');
-            }
+            
+            // 메인 뷰 사용자 이름 렌더링
+            document.getElementById('main-display-name').innerHTML = namePrefix + ' 님 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>';
+            
+            // 임대인, 임차인 화면의 이름도 미리 준비 (인증 시 활용)
+            document.getElementById('owner-display-name').innerText = namePrefix + ' 파트너';
+            document.getElementById('tenant-display-name').innerText = namePrefix + ' 입주민';
+            
+            isAuthenticated = false; // 로그인 직후는 미인증 상태
+            showView('main-app');
         }
 
         function handleSignup(e) {
             e.preventDefault();
             const name = document.getElementById('signup-name').value;
-            alert(name + '님, 가입이 완료되었습니다. 설정하신 역할로 로그인해주세요.');
+            showModalAlert(name + '님, 가입이 완료되었습니다. 로그인해주세요.');
             showView('login');
         }
 
         function handleLogout() {
+            isAuthenticated = false;
             showView('login');
+        }
+
+        function authenticateRole(role) {
+            isAuthenticated = true; // 인증 완료 상태로 전환
+            if (role === 'owner') {
+                showModalAlert('임대인 인증이 완료되었습니다.');
+                showView('owner-app');
+            } else if (role === 'tenant') {
+                showModalAlert('임차인 인증이 완료되었습니다.');
+                showView('tenant-app');
+            }
+        }
+
+        function handleWriteStory() {
+            if (!isAuthenticated) {
+                showModalAlert('2차 인증(임대인/임차인) 완료 후 방 등록이 가능합니다.');
+                return;
+            }
+            showModalAlert('방 등록 기능은 준비 중입니다.');
+        }
+
+        function handleCommentSubmit() {
+            if (!isAuthenticated) {
+                showModalAlert('2차 인증(임대인/임차인) 완료 후 댓글 작성이 가능합니다.');
+                return;
+            }
+            showModalAlert('댓글이 성공적으로 등록되었습니다!');
         }
 
         // 임차인이 임대인 초대 신청
@@ -583,7 +795,7 @@ const htmlTemplate = `
             })
             .then(res => res.json())
             .then(res => {
-                alert('임대인 ' + ownerName + '님에게 매칭 및 가입 유도 알림톡 초대가 성공적으로 발송되었습니다!');
+                showModalAlert('임대인 ' + ownerName + '님에게 매칭 및 가입 유도 알림톡 초대가 성공적으로 발송되었습니다!');
                 document.getElementById('invite-owner-name').value = '';
                 document.getElementById('invite-owner-phone').value = '';
                 document.getElementById('invite-room').value = '';
@@ -616,7 +828,7 @@ const htmlTemplate = `
             })
             .then(res => res.json())
             .then(() => {
-                alert('임차인 매칭 승인이 완료되어 계약 공간이 동기화되었습니다!');
+                showModalAlert('임차인 매칭 승인이 완료되어 계약 공간이 동기화되었습니다!');
                 checkPendingInvites();
             });
         }
