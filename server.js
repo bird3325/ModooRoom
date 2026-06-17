@@ -393,11 +393,11 @@ const htmlTemplate = `
             <form onsubmit="handleLogin(event)">
                 <div class="form-group">
                     <label>이메일 주소</label>
-                    <input type="email" id="login-email" class="form-control" required value="user@moduroom.com" autocomplete="username">
+                    <input type="email" id="login-email" class="form-control" required placeholder="이메일 주소" autocomplete="username">
                 </div>
                 <div class="form-group">
                     <label>비밀번호</label>
-                    <input type="password" id="login-password" class="form-control" required value="password123" autocomplete="current-password">
+                    <input type="password" id="login-password" class="form-control" required placeholder="비밀번호" autocomplete="current-password">
                 </div>
                 <button type="submit" class="btn-auth" id="btn-login-submit">로그인</button>
             </form>
@@ -1168,7 +1168,8 @@ const htmlTemplate = `
                     .single();
 
                 if (profileError || !profile) {
-                    showModalAlert('프로필을 불러오지 못했습니다. DB 쿼리 연동이 필요합니다.');
+                    console.error('Profile fetch error:', profileError);
+                    showModalAlert('프로필 조회 실패: ' + (profileError ? profileError.message : '데이터 없음'));
                     return;
                 }
 
@@ -1227,6 +1228,8 @@ const htmlTemplate = `
                 }
             }
 
+            document.getElementById('login-email').value = email;
+            document.getElementById('login-password').value = password;
             showModalAlert(name + '님, 가입이 완료되었습니다. 로그인해주세요.');
             showView('login');
         }
