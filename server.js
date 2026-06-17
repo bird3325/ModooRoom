@@ -13,6 +13,29 @@ const securityService = new SecurityService();
 
 // 임시 데이터베이스 (메모리 저장소)
 const pendingContracts = []; // 임차인이 등록하고 임대인 승인을 기다리는 계약들
+const matchedContracts = []; // 임대인이 승인하여 매칭이 완료된 계약들
+const registeredBuildings = []; // 임대인이 등록한 건물 목록
+let supabaseConfig = { url: '', key: '' }; // Supabase 연동 설정
+
+try {
+    const envPath = path.join(__dirname, '.env');
+    if (fs.existsSync(envPath)) {
+        const envContent = fs.readFileSync(envPath, 'utf8');
+        envContent.split('\n').forEach(line => {
+            const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+            if (match) {
+                const key = match[1];
+                let value = match[2] || '';
+                value = value.trim(); // Add trim just in case
+                if (key === 'SUPABASE_URL') supabaseConfig.url = value;
+                if (key === 'SUPABASE_ANON_KEY') supabaseConfig.key = value;
+            }
+        });
+    }
+    console.log('Loaded supabaseConfig:', supabaseConfig);
+} catch (e) {
+    console.error('.env 파일을 읽는 중 오류 발생:', e);
+}
 
 const htmlTemplate = `
 <!DOCTYPE html>
@@ -24,6 +47,7 @@ const htmlTemplate = `
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --primary-deep-navy: #1a365d;
@@ -369,11 +393,11 @@ const htmlTemplate = `
             <form onsubmit="handleLogin(event)">
                 <div class="form-group">
                     <label>이메일 주소</label>
-                    <input type="email" id="login-email" class="form-control" required value="user@moduroom.com">
+                    <input type="email" id="login-email" class="form-control" required value="user@moduroom.com" autocomplete="username">
                 </div>
                 <div class="form-group">
                     <label>비밀번호</label>
-                    <input type="password" id="login-password" class="form-control" required value="password123">
+                    <input type="password" id="login-password" class="form-control" required value="password123" autocomplete="current-password">
                 </div>
                 <button type="submit" class="btn-auth" id="btn-login-submit">로그인</button>
             </form>
@@ -410,15 +434,15 @@ const htmlTemplate = `
                 </div>
                 <div class="form-group">
                     <label>아이디 (이메일)</label>
-                    <input type="email" id="signup-email" class="form-control" required placeholder="name@domain.com">
+                    <input type="email" id="signup-email" class="form-control" required placeholder="name@domain.com" autocomplete="username">
                 </div>
                 <div class="form-group">
                     <label>이름 (성함)</label>
-                    <input type="text" id="signup-name" class="form-control" required placeholder="홍길동">
+                    <input type="text" id="signup-name" class="form-control" required placeholder="홍길동" autocomplete="name">
                 </div>
                 <div class="form-group">
                     <label>비밀번호</label>
-                    <input type="password" id="signup-password" class="form-control" required placeholder="최소 8자리 이상">
+                    <input type="password" id="signup-password" class="form-control" required placeholder="최소 8자리 이상" autocomplete="new-password">
                 </div>
                 <button type="submit" class="btn-auth" id="btn-signup-submit">회원가입 완료</button>
             </form>
@@ -428,7 +452,7 @@ const htmlTemplate = `
         </div>
     </div>
 
-    <!-- 인증 전 메인 뷰 추가 -->
+    <!-- 메인 대시보드 (로그인 직후/2차인증 전 화면) -->
     <div id="main-app" class="hidden">
         <nav class="navbar">
             <div class="navbar-brand">
@@ -679,6 +703,9 @@ const htmlTemplate = `
             <!-- 임차인 역초대 승인 섹션 -->
             <div id="pending-invites-section"></div>
 
+            <!-- 현재 관리 중인 임차인 섹션 -->
+            <div id="active-tenants-section" style="margin-bottom: 20px;"></div>
+
             <div class="dashboard-layout">
                 <div>
                     <div class="card">
@@ -729,7 +756,8 @@ const htmlTemplate = `
         </nav>
 
         <div class="main-container">
-            <div class="dashboard-layout">
+            <!-- 미매칭 상태 뷰 -->
+            <div id="tenant-unmatched-view" class="dashboard-layout">
                 <div>
                     <div class="card">
                         <div class="card-title"><i class="fa-solid fa-bell"></i> 임대인 상향식 초대 (Bottom-Up)</div>
@@ -754,9 +782,49 @@ const htmlTemplate = `
                     </div>
                 </div>
                 <div>
-                    <div class="card">
+                    <div class="card" style="opacity: 0.6; pointer-events: none;">
                         <div class="card-title"><i class="fa-solid fa-wrench"></i> 나의 민원 신청하기</div>
                         <p style="font-size:13px; color:#718096;">임대인 승인 완료 시 사진 한 장 비대면 즉시 접수 채널이 개통됩니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 매칭 상태 뷰 -->
+            <div id="tenant-matched-view" class="dashboard-layout hidden">
+                <div>
+                    <div class="card" style="border-top: 4px solid var(--primary-light-blue);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                            <div class="card-title" style="margin-bottom: 0;"><i class="fa-solid fa-file-signature"></i> 나의 계약 정보</div>
+                            <span style="background: #e6fffa; color: #319795; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid #b2f5ea;">
+                                채널 개통 완료
+                            </span>
+                        </div>
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px;">
+                            <p style="margin-bottom: 8px;"><b>임대인 성함:</b> <span id="matched-owner-name"></span></p>
+                            <p style="margin-bottom: 8px;"><b>임대인 연락처:</b> <span id="matched-owner-phone"></span></p>
+                            <p style="margin-bottom: 0;"><b>내 방 호실:</b> <span id="matched-room" style="color: var(--primary-deep-navy); font-weight: bold;"></span></p>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <div class="card">
+                        <div class="card-title"><i class="fa-solid fa-wrench"></i> 나의 민원 신청하기</div>
+                        <p style="font-size:13px; color:#718096; margin-bottom: 15px;">사진과 함께 내용을 입력하여 즉시 비대면 접수하세요.</p>
+                        <form onsubmit="handleComplaintSubmit(event)">
+                            <div class="form-group">
+                                <label>제목</label>
+                                <input type="text" id="complaint-title" class="form-control" placeholder="예: 화장실 문 손잡이 고장" required>
+                            </div>
+                            <div class="form-group">
+                                <label>상세 내용</label>
+                                <textarea id="complaint-desc" class="form-control" rows="3" placeholder="문제 상황을 상세히 적어주세요." required style="resize: none;"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>사진 첨부</label>
+                                <input type="file" class="form-control" style="padding: 6px;">
+                            </div>
+                            <button type="submit" class="btn btn-orange">민원 접수하기</button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -779,21 +847,33 @@ const htmlTemplate = `
         <div class="main-container" id="auth-choice-container" style="max-width: 800px;">
             <h2 style="text-align: center; color: var(--primary-deep-navy); margin-bottom: 30px; font-size: 22px;">마이페이지</h2>
             
-            <!-- 공통 개인정보 수정란 -->
-            <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; margin-bottom: 30px; border: 1px solid #e2e8f0;">
-                <h4 style="font-size: 15px; color: var(--primary-deep-navy); margin-bottom: 15px;"><i class="fa-solid fa-user-pen"></i> 내 기본 정보 수정</h4>
+            <!-- 공통 개인정보 수정란 (최신 스타일 적용) -->
+            <div style="background-color: #ffffff; padding: 25px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #edf2f7; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);">
+                <h4 style="font-size: 16px; font-weight: 600; color: var(--primary-deep-navy); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-user-pen" style="color: var(--point-orange);"></i> 내 기본 정보 및 비밀번호 관리
+                </h4>
                 <div class="dashboard-layout" style="grid-template-columns: 1fr 1fr; gap: 20px;">
                     <div class="form-group" style="margin-bottom: 0;">
-                        <label>가입자 성함</label>
-                        <input type="text" class="form-control" id="common-edit-name" required>
+                        <label style="font-weight: 500; color: #4a5568;">가입자 성함</label>
+                        <input type="text" class="form-control" id="common-edit-name" required style="background-color: #f8fafc;">
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
-                        <label>휴대전화 번호</label>
-                        <input type="text" class="form-control" id="common-edit-phone" required>
+                        <label style="font-weight: 500; color: #4a5568;">휴대전화 번호</label>
+                        <input type="text" class="form-control" id="common-edit-phone" required style="background-color: #f8fafc;">
                     </div>
                 </div>
-                <div style="text-align: right; margin-top: 15px;">
-                    <button class="btn btn-orange" style="padding: 8px 16px; font-size: 13px;" onclick="showModalAlert('개인정보가 성공적으로 수정되었습니다.')">정보 저장하기</button>
+                <div class="dashboard-layout" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label style="font-weight: 500; color: #4a5568;">새 비밀번호</label>
+                        <input type="password" class="form-control" id="common-edit-password" placeholder="변경할 비밀번호 (선택)" style="background-color: #f8fafc;" autocomplete="new-password">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label style="font-weight: 500; color: #4a5568;">새 비밀번호 확인</label>
+                        <input type="password" class="form-control" id="common-edit-password-confirm" placeholder="비밀번호 재입력" style="background-color: #f8fafc;" autocomplete="new-password">
+                    </div>
+                </div>
+                <div style="text-align: right; margin-top: 25px; border-top: 1px solid #edf2f7; padding-top: 15px;">
+                    <button class="btn btn-orange" style="padding: 10px 20px; font-size: 14px; border-radius: 8px; font-weight: 600; box-shadow: 0 2px 4px rgba(237, 137, 54, 0.3);" onclick="saveMyInfo()">정보 저장하기</button>
                 </div>
             </div>
 
@@ -814,10 +894,7 @@ const htmlTemplate = `
                         <label>건물명</label>
                         <input type="text" class="form-control" id="owner-building-name" required placeholder="예) 모두빌라 1동">
                     </div>
-                    <div class="form-group">
-                        <label>추가 건물정보 (선택)</label>
-                        <input type="text" class="form-control" placeholder="층수, 호수 등">
-                    </div>
+
                     <button type="submit" class="btn" style="width: 100%; justify-content: center; margin-top: 15px; padding: 14px;">건축물대장 명의 대조 후 인증</button>
                 </form>
             </div>
@@ -829,15 +906,52 @@ const htmlTemplate = `
                     2차 인증을 완료하시면 더 안전하고 편리하게 '모두의 방'을 이용하실 수 있습니다.<br>
                     <strong>임차인</strong>은 등록된 거주자로서 집주인과 원활하게 소통해 보세요!
                 </p>
-                <form onsubmit="authenticateTenantDetailed(event)">
-                    <p style="font-size: 13px; color: #718096; margin-bottom: 15px;">등록된 임대인에게 코드를 발송하여 거주를 인증합니다.</p>
+                <div id="tenant-search-section">
+                    <p style="font-size: 13px; color: #718096; margin-bottom: 15px;">거주 중인 건물 주소를 검색하여 등록된 임대인이 있는지 확인합니다.</p>
                     <div class="form-group">
-                        <label>임대인 연락처 또는 가입 코드</label>
-                        <input type="text" class="form-control" required placeholder="010-XXXX-XXXX">
+                        <label>건물 주소</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" class="form-control" id="tenant-search-address" required placeholder="클릭하여 주소를 검색하세요" readonly onclick="execDaumPostcodeForTenant()" style="cursor: pointer; background-color: #f8fafc; flex: 1;">
+                            <button type="button" class="btn" style="padding: 0 20px; font-weight: 500;" onclick="searchBuildingForTenant()">조회</button>
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-orange" style="width: 100%; justify-content: center; margin-top: 15px; padding: 14px;">임대인에게 인증 코드 발송</button>
-                </form>
+                    <div class="form-group">
+                        <label>상세 호실 (예: 201호)</label>
+                        <input type="text" class="form-control" id="tenant-search-room" placeholder="호실 입력">
+                    </div>
+                </div>
+
+                <div id="tenant-registered-section" class="hidden" style="margin-top: 20px; padding: 15px; background: #ebf8fa; border-radius: 8px; border: 1px solid #b2ebf2;">
+                    <p style="font-size: 14px; font-weight: 600; color: #00838f; margin-bottom: 10px;"><i class="fa-solid fa-circle-check"></i> 가입된 임대인이 확인되었습니다.</p>
+                    <p style="font-size: 13px; color: #006064; margin-bottom: 15px;">임대인 <strong id="tenant-found-owner-name"></strong> 파트너에게 지금 바로 거주 인증을 요청하세요.</p>
+                    <button type="button" class="btn" style="width: 100%; justify-content: center; background: #00acc1; border: none; color: white;" onclick="requestAuthToOwner()">거주 인증 요청 발송하기</button>
+                </div>
+
+                <div id="tenant-unregistered-section" class="hidden" style="margin-top: 20px; padding: 15px; background: #fff5f5; border-radius: 8px; border: 1px solid #fed7d7;">
+                    <p style="font-size: 14px; font-weight: 600; color: #c53030; margin-bottom: 10px;"><i class="fa-solid fa-circle-exclamation"></i> 아직 가입하지 않은 임대인입니다.</p>
+                    <p style="font-size: 13px; color: #9b2c2c; margin-bottom: 15px;">해당 건물에 등록된 임대인이 없습니다. 임대인의 전화번호를 입력하여 '모두의 방' 가입 초대장을 보내보세요!</p>
+                    <div class="form-group">
+                        <input type="tel" class="form-control" id="tenant-invite-phone" placeholder="임대인 전화번호 (010-XXXX-XXXX)">
+                    </div>
+                    <button type="button" class="btn btn-orange" style="width: 100%; justify-content: center;" onclick="sendInviteToOwner()">초대 문자 발송하기</button>
+                </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 내 건물 관리 페이지 -->
+    <div id="building-management-page" class="hidden">
+        <nav class="navbar">
+            <div class="navbar-brand">
+                <i class="fa-solid fa-house-chimney-window"></i>
+                <span>모두의 방 <span style="font-size:12px; color:var(--primary-light-blue);">[내 건물 관리]</span></span>
+            </div>
+            <div class="user-profile">
+                <button class="btn-logout" onclick="showView('owner-app')"><i class="fa-solid fa-arrow-left"></i> 뒤로가기</button>
+            </div>
+        </nav>
+        <div class="main-container" style="max-width: 800px;" id="building-management-content">
+            <!-- 동적으로 렌더링될 영역 -->
         </div>
     </div>
 
@@ -851,7 +965,37 @@ const htmlTemplate = `
     </div>
 
     <script>
-        let isAuthenticated = false;
+        // Supabase 동적 초기화
+        let supabaseClient = null;
+        window.onload = () => {
+            fetch('/api/config/supabase')
+                .then(res => res.json())
+                .then(config => {
+                    if (config.url && config.key && config.url !== 'YOUR_SUPABASE_URL') {
+                        supabaseClient = window.supabase.createClient(config.url, config.key);
+                        console.log('Supabase 클라이언트가 초기화되었습니다. (.env 사용)');
+                    }
+                })
+                .catch(err => console.error('설정을 불러오는 데 실패했습니다.', err));
+        };
+
+        // 글로벌 상태 변상태를 관리
+        let isAuthenticated = false; // 2차 인증 여부
+        let currentRole = 'owner';   // 'owner' or 'tenant'
+        let activeTenantsData = [];  // 임대인: 현재 매칭된 임차인 목록 데이터
+
+        function saveMyInfo() {
+            const pwd = document.getElementById('common-edit-password').value;
+            const pwdConfirm = document.getElementById('common-edit-password-confirm').value;
+            
+            if (pwd || pwdConfirm) {
+                if (pwd !== pwdConfirm) {
+                    showModalAlert('비밀번호가 일치하지 않습니다. 다시 확인해주세요.');
+                    return;
+                }
+            }
+            showModalAlert('개인정보 및 비밀번호가 성공적으로 수정되었습니다.');
+        }
 
         function showModalAlert(message) {
             document.getElementById('custom-alert-message').innerText = message;
@@ -922,6 +1066,7 @@ const htmlTemplate = `
             if(document.getElementById('map-app')) document.getElementById('map-app').classList.add('hidden');
             if(document.getElementById('story-detail-app')) document.getElementById('story-detail-app').classList.add('hidden');
             if(document.getElementById('auth-page')) document.getElementById('auth-page').classList.add('hidden');
+            if(document.getElementById('building-management-page')) document.getElementById('building-management-page').classList.add('hidden');
 
             if (viewName === 'login') {
                 document.getElementById('login-view').classList.remove('hidden');
@@ -961,6 +1106,9 @@ const htmlTemplate = `
                 renderOwnerBuildings();
             } else if (viewName === 'tenant-app') {
                 document.getElementById('tenant-app').classList.remove('hidden');
+                checkTenantMatchStatus();
+            } else if (viewName === 'building-management-page') {
+                document.getElementById('building-management-page').classList.remove('hidden');
             }
         }
 
@@ -976,31 +1124,109 @@ const htmlTemplate = `
             }, 100);
         }
 
-        function handleLogin(e) {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const namePrefix = email.split('@')[0].toUpperCase();
-            
-            // 메인 뷰 사용자 이름 렌더링
-            document.getElementById('main-display-name').innerHTML = namePrefix + ' 님 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>';
-            
-            // 임대인, 임차인 화면의 이름도 미리 준비 (인증 시 활용)
-            document.getElementById('owner-display-name').innerHTML = namePrefix + ' 파트너 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>';
-            document.getElementById('tenant-display-name').innerHTML = namePrefix + ' 입주민 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>';
-            
-            isAuthenticated = false; // 로그인 직후는 미인증 상태
-            showView('main-app');
-        }
-
         let globalUserRole = 'owner';
 
-        function handleSignup(e) {
+        async function handleLogin(e) {
             e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password') ? document.getElementById('login-password').value : '';
+
+            if (!supabaseClient) {
+                // 기존 모의 로직 (Supabase 연동 전 작동)
+                const namePrefix = email.split('@')[0].toUpperCase();
+                if (email.toLowerCase().includes('tenant')) {
+                    globalUserRole = 'tenant';
+                } else if (email.toLowerCase().includes('owner')) {
+                    globalUserRole = 'owner';
+                } else {
+                    globalUserRole = 'owner'; 
+                }
+                document.getElementById('main-display-name').innerHTML = namePrefix + ' 님 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>';
+                document.getElementById('owner-display-name').innerHTML = namePrefix + ' 파트너 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>';
+                document.getElementById('tenant-display-name').innerHTML = namePrefix + ' 입주민 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>';
+                isAuthenticated = false;
+                showView('main-app');
+                return;
+            }
+
+            // Supabase 로그인 처리
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (error) {
+                showModalAlert('로그인 실패: ' + error.message);
+                return;
+            }
+
+            if (data.user) {
+                const { data: profile, error: profileError } = await supabaseClient
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+
+                if (profileError || !profile) {
+                    showModalAlert('프로필을 불러오지 못했습니다. DB 쿼리 연동이 필요합니다.');
+                    return;
+                }
+
+                globalUserRole = profile.role;
+                const namePrefix = profile.name;
+                
+                document.getElementById('main-display-name').innerHTML = namePrefix + ' 님 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>';
+                document.getElementById('owner-display-name').innerHTML = namePrefix + ' 파트너 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>';
+                document.getElementById('tenant-display-name').innerHTML = namePrefix + ' 입주민 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>';
+                
+                isAuthenticated = false;
+                showView('main-app');
+            }
+        }
+
+        async function handleSignup(e) {
+            e.preventDefault();
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
             const name = document.getElementById('signup-name').value;
             const roleEl = document.querySelector('input[name="signup-role"]:checked');
-            if (roleEl) {
-                globalUserRole = roleEl.value;
+            const role = roleEl ? roleEl.value : 'owner';
+
+            if (!supabaseClient) {
+                // 기존 모의 로직 (Supabase 연동 전 작동)
+                globalUserRole = role;
+                showModalAlert(name + '님, 가입이 완료되었습니다. 로그인해주세요.');
+                showView('login');
+                return;
             }
+
+            // Supabase 회원가입 처리
+            const { data, error } = await supabaseClient.auth.signUp({
+                email: email,
+                password: password,
+            });
+
+            if (error) {
+                showModalAlert('회원가입 실패: ' + error.message);
+                return;
+            }
+
+            if (data.user) {
+                const { error: profileError } = await supabaseClient
+                    .from('profiles')
+                    .insert([{
+                        id: data.user.id,
+                        email: email,
+                        name: name,
+                        role: role
+                    }]);
+
+                if (profileError) {
+                    showModalAlert('프로필 저장 실패: ' + profileError.message);
+                    return;
+                }
+            }
+
             showModalAlert(name + '님, 가입이 완료되었습니다. 로그인해주세요.');
             showView('login');
         }
@@ -1029,18 +1255,28 @@ const htmlTemplate = `
             const bAddr = document.getElementById('owner-building-address').value;
             
             // 처음 등록하는 건물을 대표 건물로
-            ownerBuildings = [{ 
+            const newBuilding = { 
                 name: bName || '이름 없음', 
                 address: bAddr || '주소 없음', 
                 isPrimary: true,
                 floors: 1,
                 rooms: []
-            }];
+            };
+            
+            ownerBuildings = [newBuilding];
 
-            isAuthenticated = true;
-            showModalAlert('건축물대장 명의 대조 완료! 임대인 인증이 성공적으로 처리되었습니다.');
-            showView('owner-app');
+            // 백엔드 API에 건물 등록 (비동기)
+            fetch('/api/register-building', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newBuilding)
+            }).then(res => res.json()).then(data => {
+                isAuthenticated = true;
+                showModalAlert('건축물대장 명의 대조 완료! 임대인 인증이 성공적으로 처리되었습니다.');
+                showView('owner-app');
+            });
         }
+
 
         function renderOwnerBuildings() {
             const list = document.getElementById('owner-buildings-list');
@@ -1054,59 +1290,38 @@ const htmlTemplate = `
             list.innerHTML = ownerBuildings.map(function(b, idx) {
                 var badge = b.isPrimary ? '<span style="font-size: 11px; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #4a5568; margin-left: 5px;">대표 건물</span>' : '';
                 
-                // 1) 수정 모드 렌더링
-                if (b.isEditing) {
-                    return '<div style="padding: 15px; border: 1px solid var(--primary-light-blue); border-radius: 8px; margin-bottom: 10px; background: white;">' +
-                           '<div style="margin-bottom: 10px;">' +
-                           '<label style="font-size: 11px; color: #718096; display: block; margin-bottom: 4px; font-weight:600;">건물명 수정</label>' +
-                           '<input type="text" id="edit-bname-' + idx + '" class="form-control" value="' + b.name + '" style="padding: 8px 12px; font-size: 13px; margin-bottom: 8px;">' +
-                           '<label style="font-size: 11px; color: #718096; display: block; margin-bottom: 4px; font-weight:600;">주소 수정 (클릭 시 카카오 주소 검색)</label>' +
-                           '<input type="text" id="edit-baddr-' + idx + '" class="form-control" value="' + b.address + '" readonly onclick="execDaumPostcodeForEdit(' + idx + ')" style="padding: 8px 12px; font-size: 13px; cursor: pointer; background: #f8fafc; margin-bottom: 12px;">' +
-                           '<div style="text-align: right; display: flex; gap: 8px; justify-content: flex-end;">' +
-                           '<button onclick="saveBuildingEdit(' + idx + ')" class="btn btn-orange" style="padding: 6px 12px; font-size: 12px; height: auto;">저장</button>' +
-                           '<button onclick="cancelBuildingEdit(' + idx + ')" class="btn" style="padding: 6px 12px; font-size: 12px; background: #cbd5e0; color: #4a5568; height: auto;">취소</button>' +
-                           '</div>' +
-                           '</div>' +
-                           '</div>';
-                }
-
-                // 2) 호실 관리 모드 렌더링용 폼
-                var manageRoomsHtml = '';
-                if (b.isManagingRooms) {
-                    manageRoomsHtml = '<div style="margin-top: 10px; padding: 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #edf2f7; margin-bottom: 10px;">' +
-                                      '<div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">' +
-                                      '<span style="font-size: 12px; font-weight: 600; color:var(--primary-deep-navy);">총 층수:</span>' +
-                                      '<input type="number" id="edit-floors-' + idx + '" value="' + (b.floors || 1) + '" min="1" class="form-control" style="padding: 4px 8px; font-size: 12px; width: 60px; margin: 0; height:30px;">' +
-                                      '</div>' +
-                                      '<div style="display: flex; gap: 6px; align-items: center; margin-bottom: 10px;">' +
-                                      '<input type="text" id="add-room-num-' + idx + '" class="form-control" placeholder="호실 번호 (예: 101호)" style="padding: 4px 8px; font-size: 12px; margin: 0; flex: 1; height:30px;">' +
-                                      '<select id="add-room-type-' + idx + '" class="form-control" style="padding: 4px 8px; font-size: 12px; margin: 0; width: 80px; height: 30px; background: white; border:1px solid #e2e8f0; border-radius:6px;">' +
-                                      '<option value="원룸">원룸</option>' +
-                                      '<option value="투룸">투룸</option>' +
-                                      '</select>' +
-                                      '<button onclick="addRoomInPage(' + idx + ')" class="btn btn-orange" style="padding: 4px 10px; font-size: 12px; height: 30px;">호실 추가</button>' +
-                                      '</div>' +
-                                      '<div style="text-align: right;">' +
-                                      '<button onclick="saveBuildingDetails(' + idx + ')" class="btn" style="padding: 6px 12px; font-size: 12px; height: auto;">설정 완료</button>' +
-                                      '</div>' +
-                                      '</div>';
-                }
-
-                // 3) 호실 리스트 생성
-                var roomsHtml = '';
+                // 매칭된 임차인 가져오기 (이 건물의 주소와 일치하는 임차인)
+                const matchedTenantsForBuilding = (typeof activeTenantsData !== 'undefined' ? activeTenantsData : []).filter(function(m) { return m.address === b.address; });
+                
+                let allRoomsMap = {};
                 if (b.rooms && b.rooms.length > 0) {
+                    b.rooms.forEach(function(r) {
+                        allRoomsMap[r.roomNumber] = r.type;
+                    });
+                }
+                matchedTenantsForBuilding.forEach(function(m) {
+                    if (!allRoomsMap[m.room]) {
+                        allRoomsMap[m.room] = '미지정';
+                    }
+                });
+                
+                const allRoomKeys = Object.keys(allRoomsMap);
+                var roomsHtml = '';
+                if (allRoomKeys.length > 0) {
                     roomsHtml = '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #edf2f7; font-size: 12px; color: #4a5568;">' +
-                                '<strong>호실 현황 (총 ' + (b.floors || 1) + '층):</strong><br>' +
-                                b.rooms.map(function(r, rIdx) {
-                                    return '<span style="display: inline-block; background: #f7fafc; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px; margin-right: 5px; margin-top: 5px;">' +
-                                           r.roomNumber + ' (' + r.type + ') ' +
-                                           '<span onclick="deleteRoom(event, ' + idx + ', ' + rIdx + ')" style="color: #e53e3e; cursor: pointer; margin-left: 5px; font-weight: bold;">×</span>' +
+                                '<strong>호실 및 임차인 현황:</strong><br>' +
+                                allRoomKeys.map(function(roomNum) {
+                                    const matched = matchedTenantsForBuilding.find(function(m) { return m.room === roomNum; });
+                                    const badge = matched ? '<span style="color:#319795; font-weight:bold; margin-left:4px;">[' + matched.tenantName + ' 입주중]</span>' : '';
+                                    const typeStr = allRoomsMap[roomNum] === '미지정' ? '' : ' (' + allRoomsMap[roomNum] + ')';
+                                    return '<span style="display: inline-block; background: #f7fafc; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 4px; margin-right: 5px; margin-top: 5px;">' +
+                                           '<i class="fa-solid fa-door-closed" style="color:#a0aec0; margin-right:3px;"></i>' + roomNum + typeStr + badge +
                                            '</span>';
                                 }).join('') +
                                 '</div>';
                 } else {
                     roomsHtml = '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #edf2f7; font-size: 12px; color: #a0aec0;">' +
-                                '등록된 호실이 없습니다. (총 ' + (b.floors || 1) + '층)' +
+                                '등록된 호실 및 매칭된 임차인이 없습니다.' +
                                 '</div>';
                 }
 
@@ -1119,124 +1334,117 @@ const htmlTemplate = `
                        '<p style="font-size: 12px; color: #718096;">' + b.address + '</p>' +
                        '</div>' +
                        '<div style="position: relative;">' +
-                       '<button onclick="toggleBuildingMenu(event, ' + idx + ')" style="background: none; border: none; color: #a0aec0; cursor: pointer; padding: 5px;"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
-                       '<div id="building-menu-' + idx + '" class="hidden" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: var(--card-shadow); padding: 8px 0; min-width: 140px; z-index: 1000; margin-top: 5px;">' +
-                       '<a href="#" class="dropdown-item" onclick="setPrimaryBuilding(' + idx + ')">대표 건물 지정</a>' +
-                       '<a href="#" class="dropdown-item" onclick="manageBuildingDetails(' + idx + ')">층수 및 호실 관리</a>' +
-                       '<a href="#" class="dropdown-item" onclick="editBuilding(' + idx + ')">수정</a>' +
-                       '<a href="#" class="dropdown-item" onclick="deleteBuilding(' + idx + ')" style="color: #e53e3e;">삭제</a>' +
+                       '<button onclick="openBuildingManagementPage(' + idx + ')" style="background: none; border: none; color: #a0aec0; cursor: pointer; padding: 5px;"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
                        '</div>' +
                        '</div>' +
-                       '</div>' +
-                       manageRoomsHtml +
                        roomsHtml +
                        '</div>';
             }).join('');
         }
 
-        function toggleBuildingMenu(e, idx) {
-            e.stopPropagation();
-            ownerBuildings.forEach(function(b, i) {
-                if (i !== idx) {
-                    const otherMenu = document.getElementById('building-menu-' + i);
-                    if (otherMenu) otherMenu.classList.add('hidden');
-                }
-            });
-            const menu = document.getElementById('building-menu-' + idx);
-            if (menu) {
-                menu.classList.toggle('hidden');
-            }
-        }
-
-        function setPrimaryBuilding(idx) {
-            ownerBuildings.forEach(function(b, i) {
-                b.isPrimary = (i === idx);
-            });
-            renderOwnerBuildings();
-        }
-
-        function editBuilding(idx) {
-            ownerBuildings.forEach(function(b, i) {
-                b.isEditing = (i === idx);
-                b.isManagingRooms = false;
-            });
-            renderOwnerBuildings();
-        }
-
-        function cancelBuildingEdit(idx) {
-            ownerBuildings[idx].isEditing = false;
-            renderOwnerBuildings();
-        }
-
-        function saveBuildingEdit(idx) {
-            const bName = document.getElementById('edit-bname-' + idx).value;
-            const bAddr = document.getElementById('edit-baddr-' + idx).value;
-            if (!bName.trim() || !bAddr.trim()) {
-                showModalAlert('건물명과 주소를 입력해주세요.');
-                return;
-            }
-            ownerBuildings[idx].name = bName.trim();
-            ownerBuildings[idx].address = bAddr.trim();
-            ownerBuildings[idx].isEditing = false;
-            renderOwnerBuildings();
-        }
-
-        function execDaumPostcodeForEdit(idx) {
-            new daum.Postcode({
-                oncomplete: function(data) {
-                    document.getElementById('edit-baddr-' + idx).value = data.address;
-                    if (data.buildingName && data.buildingName !== '') {
-                        document.getElementById('edit-bname-' + idx).value = data.buildingName;
-                    }
-                }
-            }).open();
-        }
-
-        function manageBuildingDetails(idx) {
-            ownerBuildings.forEach(function(b, i) {
-                b.isManagingRooms = (i === idx);
-                b.isEditing = false;
-            });
-            renderOwnerBuildings();
-        }
-
-        function addRoomInPage(idx) {
-            const roomNum = document.getElementById('add-room-num-' + idx).value;
-            const roomType = document.getElementById('add-room-type-' + idx).value;
-            if (!roomNum.trim()) {
-                showModalAlert('호실 번호를 입력해주세요.');
-                return;
-            }
+        function openBuildingManagementPage(idx) {
             const b = ownerBuildings[idx];
-            if (!b.rooms) b.rooms = [];
-            b.rooms.push({ roomNumber: roomNum.trim(), type: roomType });
-            document.getElementById('add-room-num-' + idx).value = '';
-            renderOwnerBuildings();
+            showView('building-management-page');
+            const content = document.getElementById('building-management-content');
+            
+            content.innerHTML = '<div class="card" style="border-top: 4px solid var(--primary-light-blue);">' +
+                '<div class="card-title" style="margin-bottom: 25px;"><i class="fa-solid fa-building"></i> 건물 상세 관리</div>' +
+                '<div class="form-group">' +
+                    '<label>건물명</label>' +
+                    '<input type="text" id="bm-name" class="form-control" value="' + b.name + '">' +
+                '</div>' +
+                '<div class="form-group">' +
+                    '<label>건물 주소</label>' +
+                    '<input type="text" id="bm-addr" class="form-control" value="' + b.address + '" readonly style="background: #e2e8f0;">' +
+                    '<p style="font-size: 11px; color: #718096; margin-top: 4px;">주소는 인증된 정보로 직접 수정할 수 없습니다.</p>' +
+                '</div>' +
+                '<div class="form-group">' +
+                    '<label>총 층수</label>' +
+                    '<input type="number" id="bm-floors" class="form-control" value="' + (b.floors || 1) + '" min="1">' +
+                '</div>' +
+                '<div style="display: flex; gap: 10px; margin-top: 20px;">' +
+                    '<button class="btn btn-orange" style="flex: 1; justify-content: center;" onclick="saveBuildingManagement(' + idx + ')">변경사항 저장</button>' +
+                    '<button class="btn" style="flex: 1; justify-content: center; background: #e2e8f0; color: #4a5568;" onclick="setPrimaryBuildingFromPage(' + idx + ')">대표 건물로 지정</button>' +
+                '</div>' +
+                '<div style="margin-top: 20px; text-align: right;">' +
+                    '<button class="btn" style="background: #e53e3e; color: white; border: none; font-size: 13px; padding: 8px 16px;" onclick="deleteBuildingFromPage(' + idx + ')">건물 삭제</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="card" style="margin-top: 20px;">' +
+                '<div class="card-title"><i class="fa-solid fa-door-open"></i> 호실 관리</div>' +
+                '<div style="display: flex; gap: 10px; margin-bottom: 20px;">' +
+                    '<input type="text" id="bm-add-room-num" class="form-control" placeholder="호실 번호 (예: 101호)" style="margin: 0; flex: 2;">' +
+                    '<select id="bm-add-room-type" class="form-control" style="margin: 0; flex: 1;">' +
+                        '<option value="원룸">원룸</option>' +
+                        '<option value="투룸">투룸</option>' +
+                    '</select>' +
+                    '<button onclick="addRoomFromPage(' + idx + ')" class="btn btn-orange" style="white-space: nowrap;">호실 추가</button>' +
+                '</div>' +
+                '<div id="bm-room-list"></div>' +
+            '</div>';
+            renderRoomList(idx);
         }
 
-        function saveBuildingDetails(idx) {
-            const floorsVal = parseInt(document.getElementById('edit-floors-' + idx).value);
-            if (isNaN(floorsVal) || floorsVal <= 0) {
-                showModalAlert('올바른 층수를 입력해주세요.');
+        function renderRoomList(idx) {
+            const b = ownerBuildings[idx];
+            const list = document.getElementById('bm-room-list');
+            if (!b.rooms || b.rooms.length === 0) {
+                list.innerHTML = '<p style="color: #a0aec0; font-size: 13px;">등록된 호실이 없습니다.</p>';
                 return;
             }
-            ownerBuildings[idx].floors = floorsVal;
-            ownerBuildings[idx].isManagingRooms = false;
-            renderOwnerBuildings();
+            list.innerHTML = b.rooms.map(function(r, rIdx) {
+                const matched = activeTenantsData.find(function(m) { return m.room === r.roomNumber; });
+                const badge = matched ? '<span style="background: #e6fffa; color: #319795; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 8px; border: 1px solid #b2f5ea;"><i class="fa-solid fa-user-check"></i> 입주: ' + matched.tenantName + '</span>' : '';
+                return '<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px; background: #f8fafc;">' +
+                    '<span><strong style="color: var(--primary-deep-navy);">' + r.roomNumber + '</strong> <span style="font-size: 12px; color: #718096;">(' + r.type + ')</span>' + badge + '</span>' +
+                    '<button onclick="deleteRoomFromPage(' + idx + ', ' + rIdx + ')" style="background: none; border: none; color: #e53e3e; cursor: pointer; font-weight: bold;">삭제</button>' +
+                '</div>';
+            }).join('');
         }
 
-        function deleteRoom(e, bIdx, rIdx) {
-            e.stopPropagation();
-            ownerBuildings[bIdx].rooms.splice(rIdx, 1);
+        function saveBuildingManagement(idx) {
+            ownerBuildings[idx].name = document.getElementById('bm-name').value;
+            ownerBuildings[idx].floors = parseInt(document.getElementById('bm-floors').value) || 1;
+            showModalAlert('건물 정보가 성공적으로 수정되었습니다.');
             renderOwnerBuildings();
+            showView('owner-app');
         }
 
-        function deleteBuilding(idx) {
-            const wasPrimary = ownerBuildings[idx].isPrimary;
-            ownerBuildings.splice(idx, 1);
-            if (wasPrimary && ownerBuildings.length > 0) {
-                ownerBuildings[0].isPrimary = true;
+        function setPrimaryBuildingFromPage(idx) {
+            ownerBuildings.forEach(b => b.isPrimary = false);
+            ownerBuildings[idx].isPrimary = true;
+            showModalAlert('대표 건물로 지정되었습니다.');
+            renderOwnerBuildings();
+            showView('owner-app');
+        }
+
+        function deleteBuildingFromPage(idx) {
+            if(confirm('정말로 이 건물을 삭제하시겠습니까?')) {
+                const wasPrimary = ownerBuildings[idx].isPrimary;
+                ownerBuildings.splice(idx, 1);
+                if (wasPrimary && ownerBuildings.length > 0) {
+                    ownerBuildings[0].isPrimary = true;
+                }
+                showModalAlert('건물이 삭제되었습니다.');
+                renderOwnerBuildings();
+                showView('owner-app');
             }
+        }
+
+        function addRoomFromPage(idx) {
+            const num = document.getElementById('bm-add-room-num').value;
+            const type = document.getElementById('bm-add-room-type').value;
+            if (!num) return showModalAlert('호실 번호를 입력해주세요.');
+            if (!ownerBuildings[idx].rooms) ownerBuildings[idx].rooms = [];
+            ownerBuildings[idx].rooms.push({ roomNumber: num, type: type });
+            document.getElementById('bm-add-room-num').value = '';
+            renderRoomList(idx);
+            renderOwnerBuildings();
+        }
+
+        function deleteRoomFromPage(bIdx, rIdx) {
+            ownerBuildings[bIdx].rooms.splice(rIdx, 1);
+            renderRoomList(bIdx);
             renderOwnerBuildings();
         }
 
@@ -1287,7 +1495,37 @@ const htmlTemplate = `
         }
 
         // 임대인의 보류 중인 임차인 매칭 요청 목록 로드
+        function loadActiveTenants() {
+            fetch('/api/matched-tenants')
+                .then(res => res.json())
+                .then(data => {
+                    activeTenantsData = data;
+                    const section = document.getElementById('active-tenants-section');
+                    if (data.length === 0) {
+                        section.innerHTML = '';
+                        return;
+                    }
+                    section.innerHTML = '<div class="card" style="border-top: 4px solid #3182ce;">' +
+                        '<div class="card-title" style="margin-bottom: 15px;"><i class="fa-solid fa-users"></i> 현재 관리 중인 임차인</div>' +
+                        '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">' +
+                        data.map(function(m) {
+                            return '<div style="padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">' +
+                                '<div>' +
+                                '<div style="font-size: 14px; font-weight: bold; color: var(--primary-deep-navy);">' + m.tenantName + ' <span style="font-size: 11px; font-weight: normal; background: #bee3f8; color: #2b6cb0; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">' + m.room + '</span></div>' +
+                                '<div style="font-size: 12px; color: #718096; margin-top: 4px;">상태: 안전 거주 중</div>' +
+                                '</div>' +
+                                '<button class="btn" style="padding: 6px 12px; font-size: 12px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="showModalAlert(&quot;채널 연결 준비 중입니다.&quot;)">메시지</button>' +
+                            '</div>';
+                        }).join('') +
+                        '</div></div>';
+                    
+                    // 건물 목록 다시 렌더링하여 배지 업데이트
+                    renderOwnerBuildings();
+                });
+        }
+
         function checkPendingInvites() {
+            loadActiveTenants();
             fetch('/api/pending-invites')
                 .then(res => res.json())
                 .then(data => {
@@ -1315,6 +1553,33 @@ const htmlTemplate = `
                 showModalAlert('임차인 매칭 승인이 완료되어 계약 공간이 동기화되었습니다!');
                 checkPendingInvites();
             });
+        }
+
+        function checkTenantMatchStatus() {
+            const tenantName = document.getElementById('tenant-display-name').innerText.trim();
+            fetch('/api/tenant-status?name=' + encodeURIComponent(tenantName))
+                .then(res => res.json())
+                .then(data => {
+                    const unmatchedView = document.getElementById('tenant-unmatched-view');
+                    const matchedView = document.getElementById('tenant-matched-view');
+                    if (data.matched) {
+                        unmatchedView.classList.add('hidden');
+                        matchedView.classList.remove('hidden');
+                        document.getElementById('matched-owner-name').innerText = data.info.ownerName;
+                        document.getElementById('matched-owner-phone').innerText = data.info.ownerPhone;
+                        document.getElementById('matched-room').innerText = data.info.room;
+                    } else {
+                        unmatchedView.classList.remove('hidden');
+                        matchedView.classList.add('hidden');
+                    }
+                });
+        }
+
+        function handleComplaintSubmit(e) {
+            e.preventDefault();
+            showModalAlert('민원이 성공적으로 접수되었습니다. 임대인에게 알림이 발송됩니다.');
+            document.getElementById('complaint-title').value = '';
+            document.getElementById('complaint-desc').value = '';
         }
 
         function runOcr() {
@@ -1359,6 +1624,77 @@ const htmlTemplate = `
                 }
             }).open();
         }
+
+        function execDaumPostcodeForTenant() {
+            new daum.Postcode({
+                oncomplete: function(data) {
+                    document.getElementById('tenant-search-address').value = data.address;
+                    document.getElementById('tenant-registered-section').classList.add('hidden');
+                    document.getElementById('tenant-unregistered-section').classList.add('hidden');
+                }
+            }).open();
+        }
+
+        let currentFoundOwnerName = '';
+
+        function searchBuildingForTenant() {
+            const address = document.getElementById('tenant-search-address').value;
+            const room = document.getElementById('tenant-search-room').value;
+            if (!address) {
+                showModalAlert('주소를 먼저 검색해주세요.');
+                return;
+            }
+            if (!room) {
+                showModalAlert('호실을 입력해주세요.');
+                return;
+            }
+
+            fetch('/api/search-building?address=' + encodeURIComponent(address))
+                .then(res => res.json())
+                .then(data => {
+                    if (data.isRegistered) {
+                        currentFoundOwnerName = '대표'; // 실제로는 data.building의 소유자명을 사용해야 하지만 데모용이므로 하드코딩
+                        document.getElementById('tenant-found-owner-name').innerText = currentFoundOwnerName;
+                        document.getElementById('tenant-registered-section').classList.remove('hidden');
+                        document.getElementById('tenant-unregistered-section').classList.add('hidden');
+                    } else {
+                        document.getElementById('tenant-registered-section').classList.add('hidden');
+                        document.getElementById('tenant-unregistered-section').classList.remove('hidden');
+                    }
+                });
+        }
+
+        function requestAuthToOwner() {
+            const address = document.getElementById('tenant-search-address').value;
+            const room = document.getElementById('tenant-search-room').value;
+            const tenantName = document.getElementById('common-edit-name').value || '임차인';
+
+            fetch('/api/invite-owner', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tenantName: tenantName,
+                    address: address,
+                    room: room,
+                    ownerName: currentFoundOwnerName
+                })
+            }).then(() => {
+                isAuthenticated = true;
+                showModalAlert('임대인에게 성공적으로 인증 요청을 발송했습니다!\\n임대인이 승인하면 대시보드에서 계약 정보가 연동됩니다.');
+                showView('tenant-app');
+            });
+        }
+
+        function sendInviteToOwner() {
+            const phone = document.getElementById('tenant-invite-phone').value;
+            if (!phone) {
+                showModalAlert('임대인 전화번호를 입력해주세요.');
+                return;
+            }
+            isAuthenticated = true;
+            showModalAlert(phone + ' 번호로 모두의 방 가입 초대 문자가 발송되었습니다!\\n임대인이 가입하시면 추후 자동으로 연동 신청이 가능합니다.');
+            showView('tenant-app');
+        }
     </script>
 </body>
 </html>
@@ -1381,6 +1717,40 @@ const server = http.createServer(async (req, res) => {
   } else if (req.method === 'GET' && parsedUrl.pathname === '/api/pending-invites') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(pendingContracts));
+  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/matched-tenants') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(matchedContracts));
+  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/tenant-status') {
+    const tenantName = parsedUrl.searchParams.get('name');
+    const matched = matchedContracts.find(c => tenantName && (tenantName.includes(c.tenantName) || c.tenantName.includes(tenantName)));
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    if (matched) {
+        res.end(JSON.stringify({ matched: true, info: matched }));
+    } else {
+        res.end(JSON.stringify({ matched: false }));
+    }
+  } else if (req.method === 'POST' && parsedUrl.pathname === '/api/register-building') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', () => {
+      const data = JSON.parse(body);
+      registeredBuildings.push(data);
+      console.log(`[임대인 건물 등록] 주소: ${data.address}, 건물명: ${data.name}`);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true }));
+    });
+  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/config/supabase') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(supabaseConfig));
+  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/search-building') {
+    const address = parsedUrl.searchParams.get('address');
+    const matchedBuilding = registeredBuildings.find(b => b.address === address);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    if (matchedBuilding) {
+        res.end(JSON.stringify({ isRegistered: true, building: matchedBuilding }));
+    } else {
+        res.end(JSON.stringify({ isRegistered: false }));
+    }
   } else if (req.method === 'POST' && parsedUrl.pathname === '/api/invite-owner') {
     let body = '';
     req.on('data', chunk => { body += chunk.toString(); });
@@ -1397,7 +1767,8 @@ const server = http.createServer(async (req, res) => {
     req.on('end', () => {
       const { index } = JSON.parse(body);
       if (index > -1 && index < pendingContracts.length) {
-        pendingContracts.splice(index, 1); // 대기열에서 제거 (승인 완료)
+        const matched = pendingContracts.splice(index, 1)[0]; // 대기열에서 제거 (승인 완료)
+        matchedContracts.push(matched); // 매칭 완료 리스트로 이동
       }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true }));
