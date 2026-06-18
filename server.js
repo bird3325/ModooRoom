@@ -740,7 +740,7 @@ const htmlTemplate = `
                     <div class="card" style="margin-top: 30px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                             <div class="card-title" style="margin-bottom: 0;"><i class="fa-solid fa-building-user"></i> 내 건물 관리</div>
-                            <button class="btn btn-orange" style="padding: 6px 12px; font-size: 12px;" onclick="showModalAlert('건물 추가 기능은 준비 중입니다.')"><i class="fa-solid fa-plus"></i> 건물 추가</button>
+                            <button class="btn btn-orange" style="padding: 6px 12px; font-size: 12px;" onclick="showView('add-building-view')"><i class="fa-solid fa-plus"></i> 건물 추가</button>
                         </div>
                         <div id="owner-buildings-list">
                         </div>
@@ -943,9 +943,8 @@ const htmlTemplate = `
                     <p style="font-size: 14px; color: #718096; margin-bottom: 20px; line-height: 1.5;">
                         임대인 인증이 안전하게 완료되었습니다.<br>등록된 건물 정보를 바탕으로 서비스를 이용해 보세요.
                     </p>
-                    <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #edf2f7; text-align: left; margin-bottom: 20px;">
-                        <p style="font-size: 13px; color: #4a5568; margin: 0 0 5px 0;"><strong>등록 건물명:</strong> <span id="auth-completed-bname"></span></p>
-                        <p style="font-size: 13px; color: #4a5568; margin: 0;"><strong>등록 주소:</strong> <span id="auth-completed-baddr"></span></p>
+                    <div id="auth-completed-buildings-list" style="margin-bottom: 20px;">
+                        <!-- 동적으로 건물 목록이 들어옵니다 -->
                     </div>
                     <button type="button" class="btn" onclick="showView('owner-app')" style="width: 100%; justify-content: center;">내 건물 관리 바로가기</button>
                 </div>
@@ -991,6 +990,46 @@ const htmlTemplate = `
         </div>
     </div>
 
+    <!-- 새 건물 추가 인증 페이지 -->
+    <div id="add-building-view" class="hidden">
+        <nav class="navbar">
+            <div class="navbar-brand" style="cursor: pointer;" onclick="showView('owner-app')">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span style="margin-left: 5px;">대시보드로 돌아가기</span>
+            </div>
+        </nav>
+        
+        <div class="main-container" style="max-width: 800px;">
+            <div class="card" style="border-top: 4px solid var(--primary-light-blue);">
+                <div class="card-title" style="margin-bottom: 25px;"><i class="fa-solid fa-house-medical"></i> 새 건물 등록 및 소유권 인증</div>
+                
+                <p style="font-size: 13.5px; color: #4a5568; margin-bottom: 20px; line-height: 1.5;">
+                    신뢰할 수 있는 플랫폼을 위해 건물 추가 시에도 <strong>소유권 인증(계약서/등기부등본 OCR)</strong>을 필수로 진행합니다.
+                </p>
+                <form onsubmit="submitAddBuilding(event)">
+                    <div class="form-group">
+                        <label>건물 주소</label>
+                        <input type="text" class="form-control" id="add-building-address" required placeholder="클릭하여 주소를 검색하세요" readonly onclick="execDaumPostcodeAddBuilding()" style="cursor: pointer; background-color: #f8fafc;">
+                    </div>
+                    <div class="form-group">
+                        <label>건물명</label>
+                        <input type="text" class="form-control" id="add-building-name" required placeholder="예) 모두빌라 1동">
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-bottom: 8px; display: block;">소유권 증빙 서류 이미지 첨부</label>
+                        <div id="drag-drop-zone-add" style="border: 2px dashed #cbd5e0; border-radius: 12px; padding: 30px 20px; text-align: center; background-color: #f8fafc; cursor: pointer; position: relative;">
+                            <input type="file" id="add-building-file" accept="image/*" required style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;" onchange="handleAddBuildingFileChange(event)">
+                            <i id="drag-drop-icon-add" class="fa-solid fa-cloud-arrow-up" style="font-size: 36px; color: #a0aec0; margin-bottom: 15px;"></i>
+                            <p id="drag-drop-text-add" style="font-size: 14px; font-weight: 600; color: #4a5568; margin-bottom: 5px;">클릭하거나 이미지를 드래그하여 업로드하세요</p>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-orange" style="width: 100%; justify-content: center; margin-top: 15px; padding: 14px;">계약서 OCR 대조 및 건물 추가</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- 내 건물 관리 페이지 -->
     <div id="building-management-page" class="hidden">
         <nav class="navbar">
@@ -1025,11 +1064,11 @@ const htmlTemplate = `
                 <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
                     <div style="flex: 1; min-width: 150px;">
                         <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">가입일 (시작)</label>
-                        <input type="date" id="admin-filter-start" class="form-control" onchange="filterAdminUsers()">
+                        <input type="text" id="admin-filter-start" class="form-control" placeholder="시작일 선택" readonly onclick="openCalendarModal(this.id)" style="cursor: pointer; background-color: #fff; font-family: inherit; font-size: 14px;">
                     </div>
                     <div style="flex: 1; min-width: 150px;">
                         <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">가입일 (종료)</label>
-                        <input type="date" id="admin-filter-end" class="form-control" onchange="filterAdminUsers()">
+                        <input type="text" id="admin-filter-end" class="form-control" placeholder="종료일 선택" readonly onclick="openCalendarModal(this.id)" style="cursor: pointer; background-color: #fff; font-family: inherit; font-size: 14px;">
                     </div>
                     <div style="flex: 1; min-width: 150px;">
                         <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">회원 구분</label>
@@ -1058,6 +1097,33 @@ const htmlTemplate = `
                             </tr>
                         </thead>
                         <tbody id="admin-users-list">
+                            <!-- JS로 렌더링 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 등록된 건물 관리 영역 추가 -->
+            <div class="card" style="margin-top: 20px; border-top: 4px solid var(--point-orange);">
+                <div class="card-title"><i class="fa-solid fa-building-circle-check"></i> 등록된 건물 관리 (옵션 B)</div>
+                <p style="font-size: 13px; color: #718096; margin-bottom: 20px;">
+                    개별 서류 인증을 거쳐 시스템에 등록된 전체 건물 목록입니다. 허위 매물이 의심되거나 문제가 있는 건물은 강제 삭제할 수 있습니다.
+                </p>
+                <div style="display: flex; align-items: flex-end; margin-bottom: 20px;">
+                    <button class="btn btn-orange" onclick="loadAdminBuildings()"><i class="fa-solid fa-rotate-right"></i> 새로고침</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead>
+                            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                <th style="padding: 12px 8px; text-align: left; color: #4a5568;">건물명</th>
+                                <th style="padding: 12px 8px; text-align: left; color: #4a5568;">주소</th>
+                                <th style="padding: 12px 8px; text-align: center; color: #4a5568;">등록일</th>
+                                <th style="padding: 12px 8px; text-align: center; color: #4a5568;">소유주 확인</th>
+                                <th style="padding: 12px 8px; text-align: center; color: #4a5568;">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-buildings-list">
                             <!-- JS로 렌더링 -->
                         </tbody>
                     </table>
@@ -1107,10 +1173,60 @@ const htmlTemplate = `
         </div>
     </div>
 
+    <!-- 달력 모달 -->
+    <div id="calendar-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;" onclick="if(event.target === this) closeCalendarModal()">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 320px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <button class="btn" style="padding: 4px 8px; font-size: 14px;" onclick="changeCalendarRange(-1)">&lt;</button>
+                <div id="calendar-month-year" style="display: flex; gap: 4px; align-items: center;"></div>
+                <button class="btn" style="padding: 4px 8px; font-size: 14px;" onclick="changeCalendarRange(1)">&gt;</button>
+            </div>
+            <div id="calendar-days-header" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; font-size: 13px; margin-bottom: 5px; font-weight: bold; color: #718096;">
+                <div style="color: #e53e3e;">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div style="color: #3182ce;">토</div>
+            </div>
+            <div id="calendar-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; font-size: 13px;">
+            </div>
+            <div id="calendar-today-display" style="text-align: center; margin-top: 10px; font-size: 12px; color: #718096;"></div>
+            <div style="margin-top: 10px; display: flex; gap: 10px;">
+                <button class="btn" style="flex: 1; background: #e2e8f0; color: #4a5568;" onclick="clearCalendarDate()">취소</button>
+                <button class="btn" style="flex: 1; background: var(--primary-light-blue); color: white; border: none;" onclick="resetCalendarToToday()">오늘</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Supabase 동적 초기화
         let supabaseClient = null;
+
+        function markUserVerified() {
+            isAuthenticated = true;
+            if (supabaseClient) {
+                supabaseClient.auth.getSession().then(({ data: { session } }) => {
+                    if (session && session.user) {
+                        supabaseClient.from('profiles').update({ is_verified: true }).eq('id', session.user.id).then(()=>{});
+                    }
+                });
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date();
+            const initDateStr = today.getFullYear() + '.' + String(today.getMonth() + 1).padStart(2, '0') + '.' + String(today.getDate()).padStart(2, '0');
+            
+            const prevWeek = new Date(today);
+            prevWeek.setDate(prevWeek.getDate() - 7);
+            const prevWeekStr = prevWeek.getFullYear() + '.' + String(prevWeek.getMonth() + 1).padStart(2, '0') + '.' + String(prevWeek.getDate()).padStart(2, '0');
+            
+            const startInput = document.getElementById('admin-filter-start');
+            const endInput = document.getElementById('admin-filter-end');
+            if (startInput) startInput.value = prevWeekStr;
+            if (endInput) endInput.value = initDateStr;
+
+            const todayDisplay = document.getElementById('calendar-today-display');
+            if (todayDisplay) {
+                todayDisplay.innerText = '오늘: ' + initDateStr;
+            }
+
             fetch('/api/config/supabase')
                 .then(res => res.json())
                 .then(async config => {
@@ -1153,7 +1269,7 @@ const htmlTemplate = `
                                     
                                     if (!bError && bData && bData.length > 0) {
                                         ownerBuildings = bData;
-                                        isAuthenticated = true; // 건물이 있으면 2차 인증 완료로 처리
+                                        markUserVerified(); // 건물이 있으면 2차 인증 완료로 처리
                                     }
                                 }
 
@@ -1167,6 +1283,7 @@ const htmlTemplate = `
                                     if (profile.role === 'admin') {
                                         showView('admin-app');
                                         loadAdminUsers();
+                                        loadAdminBuildings();
                                     } else {
                                         showModalAlert('관리자 권한이 없습니다.');
                                         showView('main-app');
@@ -1174,6 +1291,7 @@ const htmlTemplate = `
                                 } else if (profile.role === 'admin') {
                                     showView('admin-app');
                                     loadAdminUsers();
+                                    loadAdminBuildings();
                                 } else if (isAuthenticated) {
                                     showView(globalUserRole === 'owner' ? 'owner-app' : 'tenant-app');
                                 } else {
@@ -1350,6 +1468,7 @@ const htmlTemplate = `
             if(document.getElementById('map-app')) document.getElementById('map-app').classList.add('hidden');
             if(document.getElementById('story-detail-app')) document.getElementById('story-detail-app').classList.add('hidden');
             if(document.getElementById('auth-page')) document.getElementById('auth-page').classList.add('hidden');
+            if(document.getElementById('add-building-view')) document.getElementById('add-building-view').classList.add('hidden');
             if(document.getElementById('building-management-page')) document.getElementById('building-management-page').classList.add('hidden');
 
             if (viewName === 'login') {
@@ -1366,62 +1485,89 @@ const htmlTemplate = `
                 document.getElementById('story-detail-app').classList.remove('hidden');
             } else if (viewName === 'auth-page') {
                 document.getElementById('auth-page').classList.remove('hidden');
-                // 마이페이지 진입 시
-                if(document.getElementById('auth-choice-container')) {
-                    document.getElementById('auth-choice-container').classList.remove('hidden');
-                    
-                    // 공통 폼 이름 세팅
-                    const loginName = document.getElementById('main-display-name').textContent.replace(' 님', '').trim() || '홍길동';
-                    const nameInput = document.getElementById('common-edit-name');
-                    nameInput.value = loginName;
-                    
-                    if (typeof isAuthenticated !== 'undefined' && isAuthenticated) {
-                        nameInput.readOnly = true;
-                        nameInput.style.backgroundColor = '#edf2f7';
-                        nameInput.style.cursor = 'not-allowed';
-                        nameInput.title = '2차 인증이 완료되어 이름을 변경할 수 없습니다.';
-                        
-                        // 인증 완료 뱃지 추가 (기존에 없으면)
-                        const label = nameInput.previousElementSibling;
-                        if (label && !label.innerHTML.includes('fa-circle-check')) {
-                            label.innerHTML += ' <span style="font-size: 11px; color: var(--point-orange); margin-left: 5px;"><i class="fa-solid fa-circle-check"></i> 인증됨</span>';
+                // 마이페이지 진입 시 DB 연동하여 최신 상태 확인
+                if (supabaseClient) {
+                    supabaseClient.auth.getSession().then(({ data: { session } }) => {
+                        if (session) {
+                            supabaseClient.from('profiles').select('*').eq('id', session.user.id).single().then(({ data: profile }) => {
+                                if (profile) {
+                                    globalUserRole = profile.role;
+                                    supabaseClient.from('buildings').select('*').eq('owner_id', session.user.id).eq('is_verified', true).then(({ data: bData }) => {
+                                        const isReallyAuth = profile.is_verified || (bData && bData.length > 0);
+                                        isAuthenticated = isReallyAuth; // 전역 상태 업데이트
+                                        renderAuthPage(profile, isReallyAuth, bData);
+                                    });
+                                }
+                            });
                         }
-                    } else {
-                        nameInput.readOnly = false;
-                        nameInput.style.backgroundColor = '#f8fafc';
-                        nameInput.style.cursor = 'text';
-                        nameInput.title = '';
-                    }
-                    
-                    document.getElementById('common-edit-phone').value = '010-1234-5678';
-
-                    document.getElementById('auth-owner-form').classList.add('hidden');
-                    document.getElementById('auth-tenant-form').classList.add('hidden');
-                    
-                    // 회원가입 시 선택한 역할에 따라 인증 폼 렌더링
-                    if (globalUserRole === 'owner') {
-                        document.getElementById('auth-owner-form').classList.remove('hidden');
+                    });
+                } else {
+                    renderAuthPage({ name: document.getElementById('main-display-name').textContent.replace(' 님', '').trim() || '홍길동', phone: '010-1234-5678', role: globalUserRole }, isAuthenticated, ownerBuildings);
+                }
+                
+                function renderAuthPage(profile, isAuth, buildings) {
+                    if(document.getElementById('auth-choice-container')) {
+                        document.getElementById('auth-choice-container').classList.remove('hidden');
                         
-                        if (typeof isAuthenticated !== 'undefined' && isAuthenticated) {
-                            document.getElementById('auth-owner-form-content').classList.add('hidden');
-                            document.getElementById('auth-owner-completed').classList.remove('hidden');
-                            if (ownerBuildings && ownerBuildings.length > 0) {
-                                document.getElementById('auth-completed-bname').innerText = ownerBuildings[0].name;
-                                document.getElementById('auth-completed-baddr').innerText = ownerBuildings[0].address;
+                        const nameInput = document.getElementById('common-edit-name');
+                        nameInput.value = profile.name || '';
+                        
+                        if (isAuth) {
+                            nameInput.readOnly = true;
+                            nameInput.style.backgroundColor = '#edf2f7';
+                            nameInput.style.cursor = 'not-allowed';
+                            nameInput.title = '2차 인증이 완료되어 이름을 변경할 수 없습니다.';
+                            
+                            const label = nameInput.previousElementSibling;
+                            if (label && !label.innerHTML.includes('fa-circle-check')) {
+                                label.innerHTML += ' <span style="font-size: 11px; color: var(--point-orange); margin-left: 5px;"><i class="fa-solid fa-circle-check"></i> 인증됨</span>';
                             }
                         } else {
-                            document.getElementById('auth-owner-form-content').classList.remove('hidden');
-                            document.getElementById('auth-owner-completed').classList.add('hidden');
+                            nameInput.readOnly = false;
+                            nameInput.style.backgroundColor = '#f8fafc';
+                            nameInput.style.cursor = 'text';
+                            nameInput.title = '';
                         }
-                    } else {
-                        document.getElementById('auth-tenant-form').classList.remove('hidden');
+                        
+                        document.getElementById('common-edit-phone').value = profile.phone || '010-1234-5678';
+
+                        document.getElementById('auth-owner-form').classList.add('hidden');
+                        document.getElementById('auth-tenant-form').classList.add('hidden');
+                        
+                        if (globalUserRole === 'owner') {
+                            document.getElementById('auth-owner-form').classList.remove('hidden');
+                            
+                            if (isAuth) {
+                                document.getElementById('auth-owner-form-content').classList.add('hidden');
+                                document.getElementById('auth-owner-completed').classList.remove('hidden');
+                                if (buildings && buildings.length > 0) {
+                                    const bList = document.getElementById('auth-completed-buildings-list');
+                                    bList.innerHTML = buildings.map((b) => \`
+                                        <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #edf2f7; text-align: left; margin-bottom: 10px;">
+                                            <p style="font-size: 13px; color: #4a5568; margin: 0 0 5px 0;"><strong>등록 건물명:</strong> \${b.name || '-'}</p>
+                                            <p style="font-size: 13px; color: #4a5568; margin: 0;"><strong>등록 주소:</strong> \${b.address || '-'}</p>
+                                        </div>
+                                    \`).join('');
+                                }
+                            } else {
+                                document.getElementById('auth-owner-form-content').classList.remove('hidden');
+                                document.getElementById('auth-owner-completed').classList.add('hidden');
+                            }
+                        } else {
+                            document.getElementById('auth-tenant-form').classList.remove('hidden');
+                        }
                     }
                 }
             } else if (viewName === 'owner-app') {
                 document.getElementById('owner-app').classList.remove('hidden');
+                if (typeof isAuthenticated !== 'undefined' && isAuthenticated) {
+                    renderOwnerBuildings();
+                }
                 loadInventory();
                 checkPendingInvites();
                 renderOwnerBuildings();
+            } else if (viewName === 'add-building-view') {
+                document.getElementById('add-building-view').classList.remove('hidden');
             } else if (viewName === 'tenant-app') {
                 document.getElementById('tenant-app').classList.remove('hidden');
                 checkTenantMatchStatus();
@@ -1520,7 +1666,7 @@ const htmlTemplate = `
                     
                     if (!bError && bData && bData.length > 0) {
                         ownerBuildings = bData;
-                        isAuthenticated = true; // 건물이 있으면 2차 인증 완료로 처리
+                        markUserVerified(); // 건물이 있으면 2차 인증 완료로 처리
                     }
                 }
 
@@ -1528,6 +1674,7 @@ const htmlTemplate = `
                     if (profile.role === 'admin') {
                         showView('admin-app');
                         loadAdminUsers();
+                        loadAdminBuildings();
                     } else {
                         showModalAlert('관리자 권한이 없습니다.');
                         showView('main-app');
@@ -1535,6 +1682,7 @@ const htmlTemplate = `
                 } else if (profile.role === 'admin') {
                     showView('admin-app');
                     loadAdminUsers();
+                    loadAdminBuildings();
                 } else if (isAuthenticated) {
                     showView(globalUserRole === 'owner' ? 'owner-app' : 'tenant-app');
                 } else {
@@ -1598,7 +1746,7 @@ const htmlTemplate = `
         }
 
         function authenticateRole(role) {
-            isAuthenticated = true; // 인증 완료 상태로 전환
+            markUserVerified(); // 인증 완료 상태로 전환
             if (role === 'owner') {
                 showModalAlert('임대인 인증이 완료되었습니다.');
                 showView('owner-app');
@@ -1720,7 +1868,7 @@ const htmlTemplate = `
                             if (!supabaseClient) {
                                 const newBuilding = { name: bName || '이름 없음', address: bAddr || '주소 없음', isPrimary: true, floors: 1, rooms: [] };
                                 ownerBuildings = [newBuilding];
-                                isAuthenticated = true;
+                                markUserVerified();
                                 document.getElementById('loading-view').classList.add('hidden');
                                 document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
                                 showModalAlert('계약서 인증이 성공적으로 완료되었습니다.\\n[등록건물: ' + bName + ']');
@@ -1751,7 +1899,7 @@ const htmlTemplate = `
 
                             if (!ownerBuildings) ownerBuildings = [];
                             ownerBuildings.push(...insertedData);
-                            isAuthenticated = true;
+                            markUserVerified();
                             showModalAlert('계약서 인증이 성공적으로 완료되었습니다.\\n[등록건물: ' + bName + ']');
                             showView('owner-app');
                         } else {
@@ -2189,7 +2337,7 @@ const htmlTemplate = `
 
         function authenticateTenantDetailed(event) {
             event.preventDefault();
-            isAuthenticated = true;
+            markUserVerified();
             showModalAlert('임대인에게 인증 코드를 발송했습니다. 승인 시 최종 인증이 완료됩니다.');
             showView('tenant-app');
         }
@@ -2349,6 +2497,133 @@ const htmlTemplate = `
             document.getElementById('complaint-desc').value = '';
         }
 
+        function handleAddBuildingFileChange(event) {
+            const dropText = document.getElementById('drag-drop-text-add');
+            const dropIcon = document.getElementById('drag-drop-icon-add');
+                            if (event.target.files.length > 0) {
+                                dropText.innerText = event.target.files[0].name;
+                                dropIcon.className = "fa-solid fa-file-circle-check";
+                                dropIcon.style.color = "var(--primary-light-blue)";
+                            } else {
+                                dropText.innerText = "클릭하거나 이미지를 드래그하여 업로드하세요";
+                                dropIcon.className = "fa-solid fa-cloud-arrow-up";
+                                dropIcon.style.color = "#a0aec0";
+                            }
+                        }
+
+                        async function submitAddBuilding(event) {
+                            event.preventDefault();
+                            const submitBtn = event.target.querySelector('button[type="submit"]');
+                            if (submitBtn) {
+                                if (submitBtn.disabled) return;
+                                submitBtn.disabled = true;
+                            }
+
+                            const bAddr = document.getElementById('add-building-address').value.trim();
+                            const bName = document.getElementById('add-building-name').value.trim();
+                            const fileInput = document.getElementById('add-building-file');
+
+                            if (!bAddr || !bName) {
+                                showModalAlert('주소와 건물명을 입력해주세요.');
+                                if (submitBtn) submitBtn.disabled = false;
+                                return;
+                            }
+                            if (!fileInput.files[0]) {
+                                showModalAlert('소유권 증빙 서류를 첨부해주세요.');
+                                if (submitBtn) submitBtn.disabled = false;
+                                return;
+                            }
+
+                            document.getElementById('loading-view').classList.remove('hidden');
+                            document.getElementById('loading-view').querySelector('h3').innerText = '계약서 OCR 대조 중...';
+
+                            try {
+                                // 시뮬레이션 지연 (2초)
+                                await new Promise(resolve => setTimeout(resolve, 2000));
+                                
+                                if (!supabaseClient) {
+                                    const isDuplicate = ownerBuildings.some(b => b.address.trim() === bAddr);
+                                    if (isDuplicate) {
+                                        document.getElementById('loading-view').classList.add('hidden');
+                                        showModalAlert('이미 동일한 주소지로 등록된 건물이 존재합니다.');
+                                        if (submitBtn) submitBtn.disabled = false;
+                                        return;
+                                    }
+                                    const newBuilding = { name: bName, address: bAddr, isPrimary: ownerBuildings.length === 0, floors: 1, rooms: [] };
+                                    ownerBuildings.push(newBuilding);
+                                    document.getElementById('loading-view').classList.add('hidden');
+                                    document.getElementById('loading-view').querySelector('h3').innerText = '데이터를 처리 중입니다...';
+                                    showModalAlert('새 건물 추가가 완료되었습니다.\\n[추가된 건물: ' + bName + ']');
+                                    renderOwnerBuildings();
+                                    showView('owner-app');
+                                    
+                                    document.getElementById('add-building-address').value = '';
+                                    document.getElementById('add-building-name').value = '';
+                                    fileInput.value = '';
+                                    if (submitBtn) submitBtn.disabled = false;
+                                    return;
+                                }
+
+                                const { data: { session } } = await supabaseClient.auth.getSession();
+                                if (!session) {
+                                    document.getElementById('loading-view').classList.add('hidden');
+                                    showModalAlert('로그인 세션이 없습니다.');
+                                    if (submitBtn) submitBtn.disabled = false;
+                                    return;
+                                }
+
+                                // 중복 검사 로직
+                                const { data: existingBuildings, error: checkError } = await supabaseClient
+                                    .from('buildings')
+                                    .select('id')
+                                    .eq('owner_id', session.user.id)
+                                    .eq('address', bAddr);
+
+                                if (checkError) {
+                                    document.getElementById('loading-view').classList.add('hidden');
+                                    showModalAlert('중복 검사 중 오류가 발생했습니다.');
+                                    if (submitBtn) submitBtn.disabled = false;
+                                    return;
+                                }
+
+                                if (existingBuildings && existingBuildings.length > 0) {
+                                    document.getElementById('loading-view').classList.add('hidden');
+                                    showModalAlert('이미 동일한 주소지로 등록된 건물이 존재합니다.');
+                                    if (submitBtn) submitBtn.disabled = false;
+                                    return;
+                                }
+
+                                const { data: insertedData, error } = await supabaseClient
+                                    .from('buildings')
+                                    .insert([{ owner_id: session.user.id, address: bAddr, name: bName, is_primary: ownerBuildings.length === 0, floors: 1, is_verified: true }])
+                                    .select();
+
+                                document.getElementById('loading-view').classList.add('hidden');
+                                document.getElementById('loading-view').querySelector('h3').innerText = '데이터를 처리 중입니다...';
+
+                                if (error) {
+                                    showModalAlert('건물 등록 실패: ' + error.message);
+                                    if (submitBtn) submitBtn.disabled = false;
+                                    return;
+                                }
+
+                                if (!ownerBuildings) ownerBuildings = [];
+                                ownerBuildings.push(...insertedData);
+                                
+                                showModalAlert('새 건물 추가가 완료되었습니다.\\n[추가된 건물: ' + bName + ']');
+                                renderOwnerBuildings();
+                                showView('owner-app');
+
+                                document.getElementById('add-building-address').value = '';
+                                document.getElementById('add-building-name').value = '';
+                                fileInput.value = '';
+                            } catch (error) {
+                                document.getElementById('loading-view').classList.add('hidden');
+                                document.getElementById('loading-view').querySelector('h3').innerText = '데이터를 처리 중입니다...';
+                                showModalAlert('인증 중 오류가 발생했습니다: ' + error.message);
+                            }
+                        }
+
         function runOcr() {
             const container = document.getElementById('ocr-result');
             container.innerHTML = '<div style="text-align:center; padding: 20px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: var(--primary-light-blue); margin-bottom:10px;"></i><br>OCR 분석 중...</div>';
@@ -2474,7 +2749,7 @@ const htmlTemplate = `
                     ownerName: currentFoundOwnerName
                 })
             }).then(() => {
-                isAuthenticated = true;
+                markUserVerified();
                 showModalAlert('임대인에게 성공적으로 인증 요청을 발송했습니다!\\n임대인이 승인하면 대시보드에서 계약 정보가 연동됩니다.');
                 showView('tenant-app');
             });
@@ -2486,7 +2761,7 @@ const htmlTemplate = `
                 showModalAlert('임대인 전화번호를 입력해주세요.');
                 return;
             }
-            isAuthenticated = true;
+            markUserVerified();
             showModalAlert(phone + ' 번호로 모두의 방 가입 초대 문자가 발송되었습니다!\\n임대인이 가입하시면 추후 자동으로 연동 신청이 가능합니다.');
             showView('tenant-app');
         }
@@ -2515,10 +2790,11 @@ const htmlTemplate = `
             let filtered = adminUsersData;
 
             if (startDate) {
-                filtered = filtered.filter(u => new Date(u.created_at) >= new Date(startDate));
+                const sDate = new Date(startDate.replace(/\\./g, '-'));
+                filtered = filtered.filter(u => new Date(u.created_at) >= sDate);
             }
             if (endDate) {
-                const end = new Date(endDate);
+                const end = new Date(endDate.replace(/\\./g, '-'));
                 end.setHours(23, 59, 59, 999);
                 filtered = filtered.filter(u => new Date(u.created_at) <= end);
             }
@@ -2545,20 +2821,20 @@ const htmlTemplate = `
                 const verifyBtnClass = u.is_verified ? 'btn-orange' : 'btn';
                 const verifyBtnText = u.is_verified ? '인증됨' : '미인증';
                 
-                return `
+                return \`
                     <tr style="border-bottom: 1px solid #e2e8f0;">
-                        <td style="padding: 12px 8px;">${u.name}</td>
-                        <td style="padding: 12px 8px;">${u.email}</td>
-                        <td style="padding: 12px 8px;">${u.phone || '-'}</td>
-                        <td style="padding: 12px 8px;">${roleBadge}</td>
-                        <td style="padding: 12px 8px; text-align: center;">${dateStr}</td>
+                        <td style="padding: 12px 8px;">\${u.name}</td>
+                        <td style="padding: 12px 8px;">\${u.email}</td>
+                        <td style="padding: 12px 8px;">\${u.phone || '-'}</td>
+                        <td style="padding: 12px 8px;">\${roleBadge}</td>
+                        <td style="padding: 12px 8px; text-align: center;">\${dateStr}</td>
                         <td style="padding: 12px 8px; text-align: center;">
-                            <button class="${verifyBtnClass}" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="toggleVerification('${u.id}', ${u.is_verified})">${verifyBtnText}</button>
-                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="openAdminEditModal('${u.id}', '${u.name}', '${u.phone || ''}')">수정</button>
-                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: none; border: none; color: #e53e3e; cursor: pointer; font-weight: bold;" onclick="deleteAdminUser('${u.id}')">삭제</button>
+                            <button class="\${verifyBtnClass}" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="toggleVerification('\${u.id}', \${u.is_verified})">\${verifyBtnText}</button>
+                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="openAdminEditModal('\${u.id}', '\${u.name}', '\${u.phone || ''}')">수정</button>
+                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: none; border: none; color: #e53e3e; cursor: pointer; font-weight: bold;" onclick="deleteAdminUser('\${u.id}')">삭제</button>
                         </td>
                     </tr>
-                `;
+                \`;
             }).join('');
         }
 
@@ -2603,13 +2879,306 @@ const htmlTemplate = `
         async function deleteAdminUser(id) {
             if (!confirm('정말로 이 회원을 삭제(강제 탈퇴)하시겠습니까? 연관된 데이터도 모두 삭제됩니다.')) return;
             
-            const { error } = await supabaseClient.from('profiles').delete().eq('id', id);
-            if (error) {
-                showModalAlert('삭제 실패: ' + error.message);
+            if (!supabaseClient) {
+                adminUsersData = adminUsersData.filter(u => u.id !== id);
+                filterAdminUsers();
+                showModalAlert('회원이 삭제되었습니다. (로컬)');
                 return;
             }
-            showModalAlert('회원이 삭제되었습니다.');
-            loadAdminUsers();
+
+            try {
+                // 혹시 모를 외래 키 제약 조건을 피하기 위해 해당 회원의 건물 먼저 삭제 시도
+                await supabaseClient.from('buildings').delete().eq('owner_id', id);
+                
+                const { error } = await supabaseClient.from('profiles').delete().eq('id', id);
+                if (error) {
+                    showModalAlert('삭제 실패: ' + error.message);
+                    return;
+                }
+                showModalAlert('회원이 삭제되었습니다.');
+                loadAdminUsers();
+            } catch (err) {
+                showModalAlert('삭제 중 오류가 발생했습니다: ' + err.message);
+            }
+        }
+
+        async function loadAdminBuildings() {
+            if (!supabaseClient) return;
+            const { data, error } = await supabaseClient
+                .from('buildings')
+                .select('*, profiles:owner_id(name)')
+                .order('created_at', { ascending: false });
+            
+            if (error) {
+                showModalAlert('건물 목록 조회 실패: ' + error.message);
+                return;
+            }
+            renderAdminBuildings(data || []);
+        }
+
+        function renderAdminBuildings(buildings) {
+            const list = document.getElementById('admin-buildings-list');
+            if (buildings.length === 0) {
+                list.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #a0aec0;">등록된 건물이 없습니다.</td></tr>';
+                return;
+            }
+            list.innerHTML = buildings.map(b => {
+                const ownerName = b.profiles ? b.profiles.name : '알수없음';
+                return \`
+                <tr style="border-bottom: 1px solid #edf2f7;">
+                    <td style="padding: 12px 8px; font-weight: 500;">\${b.name || '-'}</td>
+                    <td style="padding: 12px 8px;">\${b.address || '-'}</td>
+                    <td style="padding: 12px 8px; text-align: center;">\${new Date(b.created_at).toLocaleDateString()}</td>
+                    <td style="padding: 12px 8px; text-align: center;">
+                        \${b.is_verified 
+                            ? \`<span class="badge badge-blue">검증완료 (\${ownerName})</span>\`
+                            : \`<span class="badge badge-orange">미인증 (\${ownerName})</span>\`
+                        }
+                    </td>
+                    <td style="padding: 12px 8px; text-align: center;">
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: #ed8936; border: none; color: white; margin-right: 5px;" onclick="toggleBuildingVerify('\${b.id}', \${b.is_verified})">\${b.is_verified ? '인증취소' : '인증승인'}</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: #e53e3e; border: none; color: white;" onclick="deleteAdminBuilding('\${b.id}')">삭제</button>
+                    </td>
+                </tr>
+            \`}).join('');
+        }
+
+        async function toggleBuildingVerify(id, currentStatus) {
+            if (!confirm(currentStatus ? '이 건물의 인증을 취소하시겠습니까?' : '이 건물을 검증완료 처리하시겠습니까?')) return;
+            
+            const { error } = await supabaseClient
+                .from('buildings')
+                .update({ is_verified: !currentStatus })
+                .eq('id', id);
+                
+            if (error) {
+                showModalAlert('인증 상태 변경 실패: ' + error.message);
+                return;
+            }
+            showModalAlert('건물 인증 상태가 변경되었습니다.');
+            loadAdminBuildings();
+        }
+
+        async function deleteAdminBuilding(id) {
+            if (!confirm('정말로 이 건물을 시스템에서 강제 삭제하시겠습니까? 연관된 모든 데이터가 삭제됩니다.')) return;
+            
+            if (!supabaseClient) {
+                showModalAlert('건물이 삭제되었습니다. (로컬)');
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient.from('buildings').delete().eq('id', id);
+                if (error) {
+                    showModalAlert('삭제 실패: ' + error.message);
+                    return;
+                }
+                showModalAlert('건물이 삭제되었습니다.');
+                loadAdminBuildings();
+            } catch (err) {
+                showModalAlert('삭제 중 오류가 발생했습니다: ' + err.message);
+            }
+        }
+
+        // --- Custom Calendar Logic ---
+        let calendarTargetId = '';
+        let currentCalDate = new Date();
+        let selectedCalDateStr = '';
+
+        function openCalendarModal(targetId) {
+            calendarTargetId = targetId;
+            const targetVal = document.getElementById(targetId).value;
+            selectedCalDateStr = targetVal;
+            if (targetVal) {
+                const parts = targetVal.split('.');
+                if(parts.length === 3) {
+                    currentCalDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                } else {
+                    currentCalDate = new Date();
+                }
+            } else {
+                currentCalDate = new Date();
+            }
+            currentCalMode = 'date';
+            renderCalendar();
+            document.getElementById('calendar-modal').classList.remove('hidden');
+        }
+
+        function closeCalendarModal() {
+            document.getElementById('calendar-modal').classList.add('hidden');
+        }
+
+        function resetCalendarToToday() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const d = String(today.getDate()).padStart(2, '0');
+            
+            if (calendarTargetId) {
+                document.getElementById(calendarTargetId).value = year + '.' + month + '.' + d;
+                filterAdminUsers();
+            }
+            closeCalendarModal();
+        }
+
+        function clearCalendarDate() {
+            if (calendarTargetId) {
+                document.getElementById(calendarTargetId).value = '';
+                filterAdminUsers();
+            }
+            closeCalendarModal();
+        }
+
+        let decadePageStart = 1920;
+        let selectedDecadeStart = 2020;
+
+        function changeCalendarRange(offset) {
+            if (currentCalMode === 'date') {
+                currentCalDate.setMonth(currentCalDate.getMonth() + offset);
+            } else if (currentCalMode === 'month') {
+                currentCalDate.setFullYear(currentCalDate.getFullYear() + offset);
+            } else if (currentCalMode === 'year') {
+                selectedDecadeStart += (offset * 12);
+            } else if (currentCalMode === 'decade') {
+                decadePageStart += (offset * 120);
+            }
+            renderCalendar();
+        }
+
+        let currentCalMode = 'date';
+
+        function switchCalendarMode(mode) {
+            if (mode === 'decade') {
+                decadePageStart = Math.floor(currentCalDate.getFullYear() / 10) * 10 - 50;
+            } else if (mode === 'year') {
+                selectedDecadeStart = Math.floor(currentCalDate.getFullYear() / 10) * 10;
+            }
+            currentCalMode = mode;
+            renderCalendar();
+        }
+
+        function setCalendarDecade(startYear) {
+            selectedDecadeStart = startYear;
+            currentCalMode = 'year';
+            renderCalendar();
+        }
+
+        function setCalendarYearMonth(val, type) {
+            if (type === 'year') {
+                currentCalDate.setFullYear(parseInt(val));
+                currentCalMode = 'month';
+            } else if (type === 'month') {
+                currentCalDate.setMonth(parseInt(val));
+                currentCalMode = 'date';
+            }
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const year = currentCalDate.getFullYear();
+            const month = currentCalDate.getMonth();
+            
+            let headerHtml = \`
+                <div style="cursor:pointer; padding:2px 5px; border-radius:4px; font-weight:bold; color:var(--primary-deep-navy); font-size:15px;" onmouseover="this.style.background='#edf2f7'" onmouseout="this.style.background='transparent'" onclick="switchCalendarMode('decade')">\${year}년</div>
+                <div style="cursor:pointer; padding:2px 5px; border-radius:4px; font-weight:bold; color:var(--primary-deep-navy); font-size:15px;" onmouseover="this.style.background='#edf2f7'" onmouseout="this.style.background='transparent'" onclick="switchCalendarMode('month')">\${month + 1}월</div>
+            \`;
+            document.getElementById('calendar-month-year').innerHTML = headerHtml;
+
+            const gridEl = document.getElementById('calendar-grid');
+            const daysHeader = document.getElementById('calendar-days-header');
+            
+            let gridHtml = '';
+
+            if (currentCalMode === 'decade') {
+                daysHeader.style.display = 'none';
+                gridEl.style.gridTemplateColumns = 'repeat(3, 1fr)';
+                gridEl.style.maxHeight = 'none';
+                gridEl.style.overflowY = 'visible';
+                for (let d = decadePageStart; d < decadePageStart + 120; d += 10) {
+                    gridHtml += \`
+                        <div style="padding: 15px 5px; cursor: pointer; border-radius: 4px; transition: 0.2s;" 
+                             onmouseover="this.style.background='#edf2f7'" 
+                             onmouseout="this.style.background='transparent'" 
+                             onclick="setCalendarDecade(\${d})">\${d}년대</div>
+                    \`;
+                }
+            } else if (currentCalMode === 'year') {
+                daysHeader.style.display = 'none';
+                gridEl.style.gridTemplateColumns = 'repeat(3, 1fr)';
+                gridEl.style.maxHeight = 'none';
+                gridEl.style.overflowY = 'visible';
+                for (let y = selectedDecadeStart; y < selectedDecadeStart + 12; y++) {
+                    gridHtml += \`
+                        <div style="padding: 15px 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; \${y === year ? 'background:var(--primary-light-blue);color:white;' : ''}" 
+                             onmouseover="if(\${y !== year}) this.style.background='#edf2f7'" 
+                             onmouseout="if(\${y !== year}) this.style.background='transparent'" 
+                             onclick="setCalendarYearMonth(\${y}, 'year')">\${y}</div>
+                    \`;
+                }
+            } else if (currentCalMode === 'month') {
+                daysHeader.style.display = 'none';
+                gridEl.style.gridTemplateColumns = 'repeat(4, 1fr)';
+                gridEl.style.maxHeight = 'none';
+                gridEl.style.overflowY = 'visible';
+                for (let m = 0; m < 12; m++) {
+                    gridHtml += \`
+                        <div style="padding: 10px 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; \${m === month ? 'background:var(--primary-light-blue);color:white;' : ''}" 
+                             onmouseover="if(\${m !== month}) this.style.background='#edf2f7'" 
+                             onmouseout="if(\${m !== month}) this.style.background='transparent'" 
+                             onclick="setCalendarYearMonth(\${m}, 'month')">\${m + 1}월</div>
+                    \`;
+                }
+            } else {
+                daysHeader.style.display = 'grid';
+                gridEl.style.gridTemplateColumns = 'repeat(7, 1fr)';
+                gridEl.style.maxHeight = 'none';
+                gridEl.style.overflowY = 'visible';
+                const firstDay = new Date(year, month, 1).getDay();
+                const lastDate = new Date(year, month + 1, 0).getDate();
+
+                for (let i = 0; i < firstDay; i++) {
+                    gridHtml += '<div></div>';
+                }
+                const realToday = new Date();
+                const isCurrentMonth = (realToday.getFullYear() === year && realToday.getMonth() === month);
+                const todayDate = realToday.getDate();
+
+                for (let d = 1; d <= lastDate; d++) {
+                    const dateStr = year + '.' + String(month + 1).padStart(2, '0') + '.' + String(d).padStart(2, '0');
+                    const isToday = isCurrentMonth && d === todayDate;
+                    const isSelected = (dateStr === selectedCalDateStr);
+                    
+                    const dayOfWeek = new Date(year, month, d).getDay();
+                    let textColor = '#2d3748';
+                    if (dayOfWeek === 0) textColor = '#e53e3e';
+                    else if (dayOfWeek === 6) textColor = '#3182ce';
+
+                    let styleStr = \`padding: 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; color: \${textColor};\`;
+                    if (isSelected) {
+                        styleStr += ' background: var(--primary-light-blue); color: white; font-weight: bold; border: 1px solid var(--primary-light-blue);';
+                    } else if (isToday) {
+                        styleStr += ' border: 1px solid var(--primary-light-blue); color: var(--primary-light-blue); font-weight: bold;';
+                    } else {
+                        styleStr += ' border: 1px solid transparent;';
+                    }
+
+                    gridHtml += \`
+                        <div style="\${styleStr}" 
+                             onmouseover="if(!\${isSelected}) this.style.background='#edf2f7'" 
+                             onmouseout="if(!\${isSelected}) this.style.background='transparent'" 
+                             onclick="selectCalendarDate('\${dateStr}')">\${d}</div>
+                    \`;
+                }
+            }
+            gridEl.innerHTML = gridHtml;
+        }
+
+        function selectCalendarDate(dateStr) {
+            if (calendarTargetId) {
+                document.getElementById(calendarTargetId).value = dateStr;
+                filterAdminUsers();
+            }
+            closeCalendarModal();
         }
     </script>
 </body>
