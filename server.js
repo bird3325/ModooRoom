@@ -931,7 +931,7 @@ const htmlTemplate = `
                             <p style="font-size: 11.5px; color: #a0aec0; margin-top: 8px;"><i class="fa-solid fa-circle-exclamation"></i> 임대인의 이름이 명확히 보이도록 찍어주세요.</p>
                         </div>
 
-                        <button type="submit" class="btn" style="width: 100%; justify-content: center; margin-top: 15px; padding: 14px;">계약서 OCR 명의 대조</button>
+                        <button type="submit" class="btn" style="width: 100%; justify-content: center; margin-top: 15px; padding: 14px;">계약서 인증(2차 인증)</button>
                     </form>
                 </div>
 
@@ -1190,6 +1190,62 @@ const htmlTemplate = `
             <div style="margin-top: 10px; display: flex; gap: 10px;">
                 <button class="btn" style="flex: 1; background: #e2e8f0; color: #4a5568;" onclick="clearCalendarDate()">취소</button>
                 <button class="btn" style="flex: 1; background: var(--primary-light-blue); color: white; border: none;" onclick="resetCalendarToToday()">오늘</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 계약서 확인 모달 -->
+    <div id="contract-confirm-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; overflow-y: auto;">
+        <div style="position: relative; margin: 40px auto; background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <h3 style="margin-bottom: 15px; color: var(--primary-deep-navy); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">계약 정보 확인</h3>
+            <p style="font-size: 13px; color: #718096; margin-bottom: 15px;">OCR로 추출된 데이터입니다. 틀린 부분이 있다면 직접 수정해 주세요.</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div class="form-group">
+                    <label>임차인 성명</label>
+                    <input type="text" id="confirm-tenant-name" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>상세주소(호실)</label>
+                    <input type="text" id="confirm-room" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>보증금</label>
+                    <input type="text" id="confirm-deposit" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>차임(월세)</label>
+                    <input type="text" id="confirm-rent" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>임대기간</label>
+                    <input type="text" id="confirm-lease-period" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>공인중개사 명칭</label>
+                    <input type="text" id="confirm-realtor-name" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>공인중개사 대표자명</label>
+                    <input type="text" id="confirm-realtor-rep" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>공인중개사 소재지</label>
+                    <input type="text" id="confirm-realtor-addr" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>공인중개사 전화번호</label>
+                    <input type="text" id="confirm-realtor-phone" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>공인중개사 등록번호</label>
+                    <input type="text" id="confirm-realtor-reg" class="form-control" />
+                </div>
+            </div>
+
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button class="btn" style="flex: 1; background: #e2e8f0; color: #4a5568;" onclick="closeContractConfirmModal()">취소</button>
+                <button class="btn" style="flex: 1; background: var(--primary-deep-navy); color: white; border: none;" onclick="confirmContractSave()">확인 및 저장</button>
             </div>
         </div>
     </div>
@@ -1542,12 +1598,15 @@ const htmlTemplate = `
                                 document.getElementById('auth-owner-completed').classList.remove('hidden');
                                 if (buildings && buildings.length > 0) {
                                     const bList = document.getElementById('auth-completed-buildings-list');
-                                    bList.innerHTML = buildings.map((b) => \`
+                                    bList.innerHTML = buildings.map((b) => {
+                                        const verifiedBadge = (b.is_verified !== false) ? '<span style="font-size: 11px; background: #e6fffa; color: #319795; padding: 2px 6px; border-radius: 4px; margin-left: 5px;"><i class="fa-solid fa-check"></i> 2차 인증 완료</span>' : '';
+                                        return \`
                                         <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #edf2f7; text-align: left; margin-bottom: 10px;">
-                                            <p style="font-size: 13px; color: #4a5568; margin: 0 0 5px 0;"><strong>등록 건물명:</strong> \${b.name || '-'}</p>
+                                            <p style="font-size: 13px; color: #4a5568; margin: 0 0 5px 0;"><strong>등록 건물명:</strong> \${b.name || '-'} \${verifiedBadge}</p>
                                             <p style="font-size: 13px; color: #4a5568; margin: 0;"><strong>등록 주소:</strong> \${b.address || '-'}</p>
                                         </div>
-                                    \`).join('');
+                                        \`;
+                                    }).join('');
                                 }
                             } else {
                                 document.getElementById('auth-owner-form-content').classList.remove('hidden');
@@ -1864,43 +1923,84 @@ const htmlTemplate = `
                         }
 
                         if (result.matched) {
-                            // 건물 등록 로직
-                            if (!supabaseClient) {
-                                const newBuilding = { name: bName || '이름 없음', address: bAddr || '주소 없음', isPrimary: true, floors: 1, rooms: [] };
-                                ownerBuildings = [newBuilding];
-                                markUserVerified();
-                                document.getElementById('loading-view').classList.add('hidden');
-                                document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
-                                showModalAlert('계약서 인증이 성공적으로 완료되었습니다.\\n[등록건물: ' + bName + ']');
-                                showView('owner-app');
-                                return;
+                                        document.getElementById('loading-view').classList.add('hidden');
+                                        document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
+                                        showModalAlert('건물 인증 업데이트 실패: ' + updateError.message);
+                                        return;
+                                    }
+                                    insertedData = updatedData;
+                                    targetBuildingId = existingBuilding.id;
+                                    
+                                    if (ownerBuildings) {
+                                        const idx = ownerBuildings.findIndex(b => b.id === existingBuilding.id);
+                                        if (idx !== -1) ownerBuildings[idx] = updatedData[0];
+                                    }
+                                }
+                            } else {
+                                const { data: newInserted, error: insertError } = await supabaseClient
+                                    .from('buildings')
+                                    .insert([{ owner_id: session.user.id, address: bAddr, name: bName, is_primary: true, floors: 1, is_verified: true }])
+                                    .select();
+                                    
+                                if (insertError) {
+                                    document.getElementById('loading-view').classList.add('hidden');
+                                    document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
+                                    showModalAlert('건물 등록 실패: ' + insertError.message);
+                                    return;
+                                }
+                                insertedData = newInserted;
+                                targetBuildingId = newInserted[0].id;
+                                if (!ownerBuildings) ownerBuildings = [];
+                                ownerBuildings.push(...insertedData);
                             }
-
-                            const { data: { session } } = await supabaseClient.auth.getSession();
-                            if (!session) {
-                                document.getElementById('loading-view').classList.add('hidden');
-                                document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
-                                showModalAlert('로그인 세션이 없습니다.');
-                                return;
+                            
+                            // 임차인 정보 추출 시 DB 등록 처리
+                            if (result.extractedTenant) {
+                                const tenantInsertData = {
+                                    building_id: targetBuildingId,
+                                    owner_id: session.user.id,
+                                    address: bAddr,
+                                    room: result.extractedTenant.room,
+                                    tenant_name: result.extractedTenant.name
+                                };
+                                const { error: tenantErr } = await supabaseClient.from('tenants').insert([tenantInsertData]);
+                                if (!tenantErr) {
+                                    tenantAddMsg = '\\n[임차인: ' + result.extractedTenant.name + '(' + result.extractedTenant.room + ') 자동 등록됨]';
+                                    if (typeof activeTenantsData === 'undefined') window.activeTenantsData = [];
+                                    activeTenantsData.push({ address: bAddr, room: result.extractedTenant.room, tenantName: result.extractedTenant.name });
+                                }
                             }
-
-                            const { data: insertedData, error } = await supabaseClient
-                                .from('buildings')
-                                .insert([{ owner_id: session.user.id, address: bAddr, name: bName, is_primary: true, floors: 1 }])
-                                .select();
+                            
+                            // 계약서 세부 정보 추출 시 DB 등록 처리
+                            if (result.extractedContract) {
+                                const contractInsertData = {
+                                    building_id: targetBuildingId,
+                                    owner_id: session.user.id,
+                                    deposit: result.extractedContract.deposit,
+                                    rent: result.extractedContract.rent,
+                                    detailed_address: result.extractedContract.detailed_address,
+                                    lease_period: result.extractedContract.lease_period,
+                                    realtor_address: result.extractedContract.realtor_address,
+                                    realtor_name: result.extractedContract.realtor_name,
+                                    realtor_representative: result.extractedContract.realtor_representative,
+                                    realtor_phone: result.extractedContract.realtor_phone,
+                                    realtor_registration_no: result.extractedContract.realtor_registration_no,
+                                    contract_image_url: preprocessedBase64
+                                };
+                                const { error: contractErr } = await supabaseClient.from('contracts').insert([contractInsertData]);
+                                if (contractErr) {
+                                    console.error("contracts insert error:", contractErr);
+                                    alert('계약서 정보 저장 중 오류가 발생했습니다: ' + contractErr.message);
+                                } else {
+                                    console.log("계약서 정보 저장 완료:", contractInsertData);
+                                }
+                            }
 
                             document.getElementById('loading-view').classList.add('hidden');
                             document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
 
-                            if (error) {
-                                showModalAlert('건물 등록 실패: ' + error.message);
-                                return;
-                            }
-
-                            if (!ownerBuildings) ownerBuildings = [];
-                            ownerBuildings.push(...insertedData);
                             markUserVerified();
-                            showModalAlert('계약서 인증이 성공적으로 완료되었습니다.\\n[등록건물: ' + bName + ']');
+                            showModalAlert('계약서 인증이 성공적으로 완료되었습니다.\\n[등록/인증건물: ' + bName + ']' + tenantAddMsg);
                             showView('owner-app');
                         } else {
                             document.getElementById('loading-view').classList.add('hidden');
@@ -1997,6 +2097,7 @@ const htmlTemplate = `
             
             list.innerHTML = ownerBuildings.map(function(b, idx) {
                 var badge = (b.isPrimary || b.is_primary) ? '<span style="font-size: 11px; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #4a5568; margin-left: 5px;">대표 건물</span>' : '';
+                var verifiedBadge = b.is_verified ? '<span style="font-size: 11px; background: #e6fffa; color: #319795; padding: 2px 6px; border-radius: 4px; margin-left: 5px;"><i class="fa-solid fa-check"></i> 2차 인증 완료</span>' : '<span style="font-size: 11px; background: #fff5f5; color: #e53e3e; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">미인증</span>';
                 
                 // 매칭된 임차인 가져오기 (이 건물의 주소와 일치하는 임차인)
                 const matchedTenantsForBuilding = (typeof activeTenantsData !== 'undefined' ? activeTenantsData : []).filter(function(m) { return m.address === b.address; });
@@ -2037,7 +2138,7 @@ const htmlTemplate = `
                        '<div style="display: flex; justify-content: space-between; align-items: start;">' +
                        '<div>' +
                        '<h4 style="font-size: 14px; color: var(--primary-deep-navy); margin-bottom: 5px;">' +
-                       b.name + ' ' + badge + 
+                       b.name + ' ' + badge + ' ' + verifiedBadge + 
                        '</h4>' +
                        '<p style="font-size: 12px; color: #718096;">' + b.address + '</p>' +
                        '</div>' +
@@ -2542,7 +2643,7 @@ const htmlTemplate = `
                                 await new Promise(resolve => setTimeout(resolve, 2000));
                                 
                                 if (!supabaseClient) {
-                                    const isDuplicate = ownerBuildings.some(b => b.address.trim() === bAddr);
+                                    const isDuplicate = ownerBuildings.some(b => b.address.replace(/\s+/g, '') === bAddr.replace(/\s+/g, ''));
                                     if (isDuplicate) {
                                         document.getElementById('loading-view').classList.add('hidden');
                                         showModalAlert('이미 동일한 주소지로 등록된 건물이 존재합니다.');
@@ -2575,9 +2676,8 @@ const htmlTemplate = `
                                 // 중복 검사 로직
                                 const { data: existingBuildings, error: checkError } = await supabaseClient
                                     .from('buildings')
-                                    .select('id')
-                                    .eq('owner_id', session.user.id)
-                                    .eq('address', bAddr);
+                                    .select('address')
+                                    .eq('owner_id', session.user.id);
 
                                 if (checkError) {
                                     document.getElementById('loading-view').classList.add('hidden');
@@ -2586,7 +2686,9 @@ const htmlTemplate = `
                                     return;
                                 }
 
-                                if (existingBuildings && existingBuildings.length > 0) {
+                                const isSupaDuplicate = existingBuildings && existingBuildings.some(b => b.address.replace(/\s+/g, '') === bAddr.replace(/\s+/g, ''));
+
+                                if (isSupaDuplicate) {
                                     document.getElementById('loading-view').classList.add('hidden');
                                     showModalAlert('이미 동일한 주소지로 등록된 건물이 존재합니다.');
                                     if (submitBtn) submitBtn.disabled = false;
@@ -3153,7 +3255,7 @@ const htmlTemplate = `
                     if (dayOfWeek === 0) textColor = '#e53e3e';
                     else if (dayOfWeek === 6) textColor = '#3182ce';
 
-                    let styleStr = \`padding: 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; color: \${textColor};\`;
+                    let styleStr = `padding: 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; color: ${textColor};`;
                     if (isSelected) {
                         styleStr += ' background: var(--primary-light-blue); color: white; font-weight: bold; border: 1px solid var(--primary-light-blue);';
                     } else if (isToday) {
@@ -3162,12 +3264,12 @@ const htmlTemplate = `
                         styleStr += ' border: 1px solid transparent;';
                     }
 
-                    gridHtml += \`
-                        <div style="\${styleStr}" 
-                             onmouseover="if(!\${isSelected}) this.style.background='#edf2f7'" 
-                             onmouseout="if(!\${isSelected}) this.style.background='transparent'" 
-                             onclick="selectCalendarDate('\${dateStr}')">\${d}</div>
-                    \`;
+                    gridHtml += `
+                        <div style="${styleStr}" 
+                             onmouseover="if(!${isSelected}) this.style.background='#edf2f7'" 
+                             onmouseout="if(!${isSelected}) this.style.background='transparent'" 
+                             onclick="selectCalendarDate('${dateStr}')">${d}</div>
+                    `;
                 }
             }
             gridEl.innerHTML = gridHtml;
@@ -3334,16 +3436,65 @@ const server = http.createServer(async (req, res) => {
         if (!hasContractKeywords) {
             console.log("[OCR 매칭 실패] 계약서 양식이 아님 (필수 단어 미검출)");
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-            return res.end(JSON.stringify({ success: false, error: '첨부하신 이미지가 임대차 계약서가 아닌 것 같습니다.\n(계약서 필수 식별 단어가 검출되지 않았습니다.)' }));
+            return res.end(JSON.stringify({ success: false, error: '첨부하신 이미지가 임대차 계약서가 아닌 것 같습니다.\\n(계약서 필수 식별 단어가 검출되지 않았습니다.)' }));
         }
+
+        // 4. 임차인 정보 및 호실 추출 시도 (가상)
+        let extractedTenant = null;
+        const tenantNameMatch = cleanText.match(/임차인(?:성명)?(?:[^\\w가-힣]{0,3})([가-힣]{2,4})/);
+        const roomMatch = cleanText.match(/(?:제\\s*|호실\\s*|\\s)([0-9]{2,4})\\s*호/);
+        
+        if (tenantNameMatch || roomMatch) {
+            extractedTenant = {
+                name: tenantNameMatch ? tenantNameMatch[1] : '임차인',
+                room: roomMatch ? roomMatch[1] + '호' : '미지정'
+            };
+        }
+
+        // 5. 계약서 세부 정보 추출 시도 (가상)
+        let extractedContract = {
+            deposit: null,
+            rent: null,
+            detailed_address: extractedTenant ? extractedTenant.room : null,
+            lease_period: null,
+            realtor_address: null,
+            realtor_name: null,
+            realtor_representative: null,
+            realtor_phone: null,
+            realtor_registration_no: null
+        };
+        
+        const depositMatch = cleanText.match(/보증금[^0-9]*([0-9,]+(?:만)?)\s*원?/);
+        extractedContract.deposit = depositMatch ? depositMatch[1] : (cleanText.includes('보증금') ? '확인필요' : null);
+        
+        const rentMatch = cleanText.match(/차임[^0-9]*([0-9,]+(?:만)?)\s*원?/);
+        extractedContract.rent = rentMatch ? rentMatch[1] : (cleanText.includes('차임') || cleanText.includes('월세') ? '확인필요' : null);
+        
+        const leasePeriodMatch = cleanText.match(/([0-9]{4}년\s*[0-9]{1,2}월\s*[0-9]{1,2}일부터.*?[0-9]{4}년\s*[0-9]{1,2}월\s*[0-9]{1,2}일)/);
+        extractedContract.lease_period = leasePeriodMatch ? leasePeriodMatch[1] : (cleanText.includes('존속기간') || cleanText.includes('임대기간') ? '자동 추출 실패 (수동 확인 필요)' : null);
+        
+        const realtorAddrMatch = cleanText.match(/중개사무소소재지([^명칭등록]+)/);
+        extractedContract.realtor_address = realtorAddrMatch ? realtorAddrMatch[1] : '추출 실패';
+        
+        const realtorNameMatch = cleanText.match(/명칭([^대표]+)/);
+        extractedContract.realtor_name = realtorNameMatch ? realtorNameMatch[1] : '추출 실패';
+        
+        const realtorRepMatch = cleanText.match(/대표([^전화등록]+)/);
+        extractedContract.realtor_representative = realtorRepMatch ? realtorRepMatch[1] : '추출 실패';
+        
+        const realtorPhoneMatch = cleanText.match(/전화([0-9-]+)/);
+        extractedContract.realtor_phone = realtorPhoneMatch ? realtorPhoneMatch[1] : '추출 실패';
+        
+        const realtorRegMatch = cleanText.match(/등록번호([가-힣0-9-]+)/);
+        extractedContract.realtor_registration_no = realtorRegMatch ? realtorRegMatch[1] : '추출 실패';
 
         // 최종 판별: 이름과 주소가 모두 (유연한 기준을 통과하여) 일치해야 성공 처리
         let matched = (isNameMatched && isAddrMatched);
         
-        console.log(`[OCR 매칭 결과] 이름: ${isNameMatched}, 주소: ${isAddrMatched}, 양식확인: ${hasContractKeywords} -> 최종: ${matched ? '일치' : '불일치'}`);
+        console.log(`[OCR 매칭 결과] 이름: \${isNameMatched}, 주소: \${isAddrMatched}, 양식확인: \${hasContractKeywords} -> 최종: \${matched ? '일치' : '불일치'}`);
         
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: true, matched: matched }));
+        res.end(JSON.stringify({ success: true, matched: matched, extractedTenant: extractedTenant, extractedContract: extractedContract }));
       } catch (err) {
         console.error('[OCR 처리 중 에러 발생]', err);
         res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
