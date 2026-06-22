@@ -18,9 +18,9 @@
 임대인이 종이 계약서를 촬영하는 단 한 번의 액션으로 시스템 내 코어 데이터베이스가 자동으로 동기화됩니다.
 
 - **임대할 부분 (소재지, 호실, 면적):** 임대인의 보유 자산 목록(건물/호실 디렉토리)에 신규 등록 및 매칭.
-- **계약 내용 (보증금, 월세, 관리비, 임대 기간):** 월별 임대료 청구 현황판 및 임차인 D-Day 위젯 자동 생성.
+- **계약 내용 (보증금, 월세, 관리비, 퇴실청소비, 계약일, 임대차 기간):** 월별 청구 현황판 및 D-Day 위젯 자동 생성.
 - **임차인 정보 (성명, 연락처):** 임차인 가입 유도 자동 알림톡 발송의 식별자로 사용.
-- **개업공인중개사 정보 (상호, 연락처):** [중개소 네트워크] 관리 탭에 단골 부동산으로 자동 자산화.
+- **개업공인중개사 정보 (소재지, 사무소명칭, 대표자성명, 등록번호, 전화):** [중개소 네트워크] 단골 부동산 자동 자산화.
 
 ### 2.2 임차인 거부감 제로(Zero) 가입 유도 시나리오
 
@@ -80,19 +80,63 @@
 
 ## 7. 세부 기술 사양 및 인터페이스 (Technical Specs)
 
-### 7.1 AI OCR 데이터 파싱 인터페이스 (JSON 스펙)
+### 7.1 AI OCR 데이터 파싱 인터페이스 및 추출 항목 (15개)
+추출 인터페이스(UI)를 통해 아래 15개의 필수 항목을 데이터베이스에 적재합니다.
+
 ```json
 {
   "success": true,
   "execution_time_ms": 1250,
   "data": {
-    "property": { "address": "서울특별시 마포구 백범로 123", "room_number": "302호", "area_m2": 24.5 },
-    "contract": { "deposit": 10000000, "monthly_rent": 550000, "maintenance_fee": 70000, "start_date": "2026-06-16", "end_date": "2028-06-15" },
-    "tenant": { "name": "홍길동", "phone": "010-1234-5678" },
-    "broker": { "agency_name": "대박공인중개사사무소", "phone": "02-987-6543" }
+    "property": { 
+      "address": "서울특별시 마포구 백범로 123", 
+      "room_number": "302호", 
+      "area_m2": 24.5 
+    },
+    "contract": { 
+      "deposit": 10000000, 
+      "monthly_rent": 550000, 
+      "maintenance_fee": 70000, 
+      "move_out_cleaning_fee": 100000,
+      "start_date": "2026-06-16", 
+      "end_date": "2028-06-15" 
+    },
+    "tenant": { 
+      "name": "홍길동", 
+      "phone": "010-1234-5678" 
+    },
+    "broker": { 
+      "agency_address": "서울특별시 마포구 마포대로 1",
+      "agency_name": "대박공인중개사사무소", 
+      "representative_name": "김대박",
+      "registration_number": "11440-2015-00123",
+      "phone": "02-987-6543" 
+    }
   }
 }
 ```
+
+### 7.2 데이터베이스 스키마 (`contracts` 테이블)
+`buildings` 테이블과 1:N 또는 1:1 형태로 연동되는 `contracts` 테이블의 스펙입니다.
+- `id` (UUID, Primary Key)
+- `building_id` (UUID, Foreign Key -> buildings.id)
+- `room_number` (String)
+- `area` (String)
+- `deposit` (Number)
+- `monthly_rent` (Number)
+- `maintenance_fee` (Number)
+- `cleaning_fee` (Number)
+- `contract_date` (String)
+- `lease_period` (String)
+- `tenant_name` (String)
+- `tenant_phone` (String)
+- `broker_address` (String)
+- `broker_agency_name` (String)
+- `broker_rep_name` (String)
+- `broker_reg_number` (String)
+- `broker_phone` (String)
+- `contract_image_url` (Text)
+- `created_at` (Timestamp)
 
 ### 7.2 자재 및 재고 관리 규칙 한계치
 - LED 전등: `3`개 / 도어락 배터리: `10`개 / 싱크대 수전: `1`개 / 배수구 트랩: `2`개
