@@ -550,78 +550,6 @@ const htmlTemplate = `
     </div>
 
     <!-- 공실 지도 뷰 -->
-
-    <div id="admin-users-app" class="hidden">
-        <nav class="navbar" style="background: #2d3748;">
-            <div class="navbar-brand" style="color: white; cursor: pointer;" onclick="showView('admin-app')">
-                <i class="fa-solid fa-user-shield"></i>
-                <span style="margin-left:5px;">모두의 방 <span style="font-size:12px; color:#a0aec0;">[관리자 전용 - 회원 관리]</span></span>
-            </div>
-            <div class="user-profile" style="position: relative;">
-                  <button id="admin-users-display-name" class="btn-logout" style="border:none; font-weight: 500; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px; color: white; background: transparent;" onclick="toggleAdminUsersMenu(event)">
-                      관리자 메뉴 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
-                  </button>
-                  <div id="admin-users-dropdown" class="dropdown-menu hidden" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: var(--card-shadow); padding: 8px 0; min-width: 150px; z-index: 1000; margin-top: 10px;">
-                      <a href="#" class="dropdown-item" onclick="showView('admin-app'); document.getElementById('admin-users-dropdown').classList.add('hidden');" style="color: #4a5568;">관리자 대시보드</a>
-                      <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
-                      <a href="#" class="dropdown-item" onclick="showView('admin-users-app'); document.getElementById('admin-users-dropdown').classList.add('hidden');" style="color: #4a5568;">회원 관리</a>
-                      <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
-                      <a href="#" class="dropdown-item" onclick="showView('admin-settings-app'); document.getElementById('admin-users-dropdown').classList.add('hidden');" style="color: #4a5568;">시스템 설정</a>
-                      <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
-                      <a href="#" class="dropdown-item" onclick="logout(); document.getElementById('admin-users-dropdown').classList.add('hidden');" style="color: #e53e3e;">로그아웃</a>
-                  </div>
-              </div>
-        </nav>
-        <div class="main-container">
-            <div class="card">
-                
-
-                <div class="card-title"><i class="fa-solid fa-users-gear"></i> 전체 회원 관리</div>
-                
-                <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 150px;">
-                        <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">가입일 (시작)</label>
-                        <input type="text" id="admin-filter-start" class="form-control" placeholder="시작일 선택" readonly onclick="openCalendarModal(this.id)" style="cursor: pointer; background-color: #fff; font-family: inherit; font-size: 14px;">
-                    </div>
-                    <div style="flex: 1; min-width: 150px;">
-                        <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">가입일 (종료)</label>
-                        <input type="text" id="admin-filter-end" class="form-control" placeholder="종료일 선택" readonly onclick="openCalendarModal(this.id)" style="cursor: pointer; background-color: #fff; font-family: inherit; font-size: 14px;">
-                    </div>
-                    <div style="flex: 1; min-width: 150px;">
-                        <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">회원 구분</label>
-                        <select id="admin-filter-role" class="form-control" onchange="filterAdminUsers()">
-                            <option value="">전체</option>
-                            <option value="owner">임대인</option>
-                            <option value="tenant">임차인</option>
-                            <option value="admin">관리자</option>
-                        </select>
-                    </div>
-                    <div style="display: flex; align-items: flex-end;">
-                        <button class="btn btn-orange" onclick="loadAdminUsers()"><i class="fa-solid fa-rotate-right"></i> 새로고침</button>
-                    </div>
-                </div>
-
-                <div style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                        <thead>
-                            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                                <th style="padding: 12px 8px; text-align: left; color: #4a5568;">이름</th>
-                                <th style="padding: 12px 8px; text-align: left; color: #4a5568;">이메일</th>
-                                <th style="padding: 12px 8px; text-align: left; color: #4a5568;">연락처</th>
-                                <th style="padding: 12px 8px; text-align: left; color: #4a5568;">구분</th>
-                                <th style="padding: 12px 8px; text-align: center; color: #4a5568;">가입일</th>
-                                <th style="padding: 12px 8px; text-align: center; color: #4a5568;">인증/관리</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-users-list">
-                            <!-- JS로 렌더링 -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div id="map-app" class="hidden">
         <nav class="navbar">
             <div class="navbar-brand" style="cursor: pointer;" onclick="showView('main-app')">
@@ -1165,72 +1093,60 @@ const htmlTemplate = `
         </div>
     </div>
 
-
-    <!-- 시스템 설정 페이지 -->
-    <div id="admin-settings-app" class="hidden">
-        <nav class="navbar" style="background: #2d3748;">
-            <div class="navbar-brand" style="color: white; cursor: pointer;" onclick="showView('admin-app')">
-                <i class="fa-solid fa-user-shield"></i>
-                <span style="margin-left: 5px;">모두의 방 <span style="font-size:12px; color:#a0aec0;">[관리자 전용 - 시스템 설정]</span></span>
-            </div>
-            <div class="user-profile" style="position: relative;">
-                  <button id="admin-settings-display-name" class="btn-logout" style="border:none; font-weight: 500; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px; color: white; background: transparent;" onclick="toggleAdminSettingsMenu(event)">
-                      관리자 메뉴 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
-                  </button>
-                  <div id="admin-settings-dropdown" class="dropdown-menu hidden" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: var(--card-shadow); padding: 8px 0; min-width: 150px; z-index: 1000; margin-top: 10px;">
-                      <a href="#" class="dropdown-item" onclick="showView('admin-app'); document.getElementById('admin-settings-dropdown').classList.add('hidden');" style="color: #4a5568;">관리자 대시보드</a>
-                      <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
-<hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
-                      <a href="#" class="dropdown-item" onclick="showView('admin-users-app'); document.getElementById('admin-settings-dropdown').classList.add('hidden');" style="color: #4a5568;">회원 관리</a>
-                      <a href="#" class="dropdown-item" onclick="showView('admin-settings-app'); document.getElementById('admin-settings-dropdown').classList.add('hidden');" style="color: #4a5568;">시스템 설정</a>
-                      <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
-                      <a href="#" class="dropdown-item" onclick="logout(); document.getElementById('admin-settings-dropdown').classList.add('hidden');" style="color: #e53e3e;">로그아웃</a>
-                  </div>
-              </div>
-        </nav>
-        <div class="main-container">
-                <div class="card" style="margin-bottom: 20px; border-top: 4px solid #667eea;">
-                    <div class="card-title"><i class="fa-solid fa-gear"></i> 시스템 설정 (API Key)</div>
-                    <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <div>
-                            <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">Gemini API Key</label>
-                            <input type="password" id="admin-gemini-key" class="form-control" placeholder="AIzaSy..." style="width: 100%; max-width: 400px; display: inline-block;">
-                            <button class="btn btn-orange" onclick="saveGeminiKey()">저장</button>
-                        </div>
-                        <p style="font-size: 12px; color: #718096; margin: 0;">이 키는 system_settings 테이블에 안전하게 저장되며, AI OCR 자동 추출 시 우선적으로 사용됩니다.</p>
-                    </div>
-                </div>
-        </div>
-    </div>
-\n    <!-- 어드민 페이지 -->
+    <!-- 어드민 페이지 -->
     <div id="admin-app" class="hidden">
         <nav class="navbar" style="background: #2d3748;">
             <div class="navbar-brand" style="color: white;">
                 <i class="fa-solid fa-user-shield"></i>
                 <span>모두의 방 <span style="font-size:12px; color:#a0aec0;">[관리자 전용]</span></span>
             </div>
-            <div class="user-profile" style="position: relative;">
-                  <button id="admin-display-name" class="btn-logout" style="border:none; font-weight: 500; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px; color: white; background: transparent;" onclick="toggleAdminMenu(event)">
-                      관리자 메뉴 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
-                  </button>
-                  <div id="admin-dropdown" class="dropdown-menu hidden" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: var(--card-shadow); padding: 8px 0; min-width: 150px; z-index: 1000; margin-top: 10px;">
-                      <a href="#" class="dropdown-item" onclick="showView('admin-app'); document.getElementById('admin-dropdown').classList.add('hidden');" style="color: #4a5568;">관리자 대시보드</a>
-                      <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
-<hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
-                      <a href="#" class="dropdown-item" onclick="showView('admin-users-app'); document.getElementById('admin-dropdown').classList.add('hidden');" style="color: #4a5568;">회원 관리</a>
-                      <a href="#" class="dropdown-item" onclick="showView('admin-settings-app'); document.getElementById('admin-dropdown').classList.add('hidden');" style="color: #4a5568;">시스템 설정</a>
-                      <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
-                      <a href="#" class="dropdown-item" onclick="logout(); document.getElementById('admin-dropdown').classList.add('hidden');" style="color: #e53e3e;">로그아웃</a>
-                  </div>
-              </div>
-          </nav>
+            <div class="user-profile">
+                <button class="btn-logout" onclick="logout()" style="color: white; border-color: #4a5568;"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</button>
+            </div>
+        </nav>
         <div class="main-container">
             <div class="card">
-                <div class="card-title"><i class="fa-solid fa-chart-pie"></i> 관리자 대시보드</div>
-                <div style="padding: 40px 20px; text-align: center; color: #718096;">
-                    <i class="fa-solid fa-layer-group" style="font-size: 48px; color: #cbd5e0; margin-bottom: 20px;"></i>
-                    <h3 style="margin-bottom: 10px; color: #4a5568;">환영합니다, 관리자님!</h3>
-                    <p style="margin: 0; line-height: 1.6;">우측 상단의 메뉴를 클릭하여 <strong>회원 관리</strong> 또는 <strong>시스템 설정</strong> 메뉴로 이동하실 수 있습니다.</p>
+                <div class="card-title"><i class="fa-solid fa-users-gear"></i> 전체 회원 관리</div>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">가입일 (시작)</label>
+                        <input type="text" id="admin-filter-start" class="form-control" placeholder="시작일 선택" readonly onclick="openCalendarModal(this.id)" style="cursor: pointer; background-color: #fff; font-family: inherit; font-size: 14px;">
+                    </div>
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">가입일 (종료)</label>
+                        <input type="text" id="admin-filter-end" class="form-control" placeholder="종료일 선택" readonly onclick="openCalendarModal(this.id)" style="cursor: pointer; background-color: #fff; font-family: inherit; font-size: 14px;">
+                    </div>
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">회원 구분</label>
+                        <select id="admin-filter-role" class="form-control" onchange="filterAdminUsers()">
+                            <option value="">전체</option>
+                            <option value="owner">임대인</option>
+                            <option value="tenant">임차인</option>
+                            <option value="admin">관리자</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: flex-end;">
+                        <button class="btn btn-orange" onclick="loadAdminUsers()"><i class="fa-solid fa-rotate-right"></i> 새로고침</button>
+                    </div>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead>
+                            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                <th style="padding: 12px 8px; text-align: left; color: #4a5568;">이름</th>
+                                <th style="padding: 12px 8px; text-align: left; color: #4a5568;">이메일</th>
+                                <th style="padding: 12px 8px; text-align: left; color: #4a5568;">연락처</th>
+                                <th style="padding: 12px 8px; text-align: left; color: #4a5568;">구분</th>
+                                <th style="padding: 12px 8px; text-align: center; color: #4a5568;">가입일</th>
+                                <th style="padding: 12px 8px; text-align: center; color: #4a5568;">인증/관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-users-list">
+                            <!-- JS로 렌더링 -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -1596,26 +1512,6 @@ const htmlTemplate = `
                 tenantDropdown.classList.add('hidden');
             }
 
-
-
-            const adminUsersDropdown = document.getElementById('admin-users-dropdown');
-            const adminUsersToggleBtn = document.getElementById('admin-users-display-name');
-            if (adminUsersDropdown && adminUsersToggleBtn && !adminUsersToggleBtn.contains(e.target) && !adminUsersDropdown.contains(e.target)) {
-                adminUsersDropdown.classList.add('hidden');
-            }
-
-            const adminSettingsDropdown = document.getElementById('admin-settings-dropdown');
-            const adminSettingsToggleBtn = document.getElementById('admin-settings-display-name');
-            if (adminSettingsDropdown && adminSettingsToggleBtn && !adminSettingsToggleBtn.contains(e.target) && !adminSettingsDropdown.contains(e.target)) {
-                adminSettingsDropdown.classList.add('hidden');
-            }
-
-            const adminDropdown = document.getElementById('admin-dropdown');
-            const adminToggleBtn = document.getElementById('admin-display-name');
-            if (adminDropdown && adminToggleBtn && !adminToggleBtn.contains(e.target) && !adminDropdown.contains(e.target)) {
-                adminDropdown.classList.add('hidden');
-            }
-
             const authDropdown = document.getElementById('auth-dropdown');
             const authToggleBtn = document.getElementById('auth-display-name');
             if (authDropdown && authToggleBtn && !authToggleBtn.contains(e.target) && !authDropdown.contains(e.target)) {
@@ -1643,21 +1539,6 @@ const htmlTemplate = `
             if(subMenu) subMenu.classList.add('hidden');
         }
 
-        function toggleAdminUsersMenu(e) {
-            e.stopPropagation();
-            document.getElementById('admin-users-dropdown').classList.toggle('hidden');
-        }
-
-        function toggleAdminSettingsMenu(e) {
-            e.stopPropagation();
-            document.getElementById('admin-settings-dropdown').classList.toggle('hidden');
-        }
-
-        function toggleAdminMenu(e) {
-            e.stopPropagation();
-            document.getElementById('admin-dropdown').classList.toggle('hidden');
-        }
-
         function toggleOwnerMenu(e) {
             e.stopPropagation();
             document.getElementById('owner-dropdown').classList.toggle('hidden');
@@ -1680,8 +1561,6 @@ const htmlTemplate = `
             document.getElementById('owner-app').classList.add('hidden');
             document.getElementById('tenant-app').classList.add('hidden');
             if(document.getElementById('admin-app')) document.getElementById('admin-app').classList.add('hidden');
-            if(document.getElementById('admin-settings-app')) document.getElementById('admin-settings-app').classList.add('hidden');
-            if(document.getElementById('admin-users-app')) document.getElementById('admin-users-app').classList.add('hidden');
             if(document.getElementById('map-app')) document.getElementById('map-app').classList.add('hidden');
             if(document.getElementById('story-detail-app')) document.getElementById('story-detail-app').classList.add('hidden');
             if(document.getElementById('auth-page')) document.getElementById('auth-page').classList.add('hidden');
@@ -1695,10 +1574,6 @@ const htmlTemplate = `
                 document.getElementById('signup-view').classList.remove('hidden');
             } else if (viewName === 'main-app') {
                 document.getElementById('main-app').classList.remove('hidden');
-            } else if (viewName === 'admin-users-app') {
-                document.getElementById('admin-users-app').classList.remove('hidden');
-            } else if (viewName === 'admin-settings-app') {
-                document.getElementById('admin-settings-app').classList.remove('hidden');
             } else if (viewName === 'admin-app') {
                 if(document.getElementById('admin-app')) document.getElementById('admin-app').classList.remove('hidden');
             } else if (viewName === 'map-app') {
@@ -3051,7 +2926,7 @@ const htmlTemplate = `
         }
         let adminUsersData = [];
 
-        async function loadAdminUsers() {\n            loadGeminiKeyIntoAdmin();
+        async function loadAdminUsers() {
             if (!supabaseClient) return;
             const { data, error } = await supabaseClient
                 .from('profiles')
@@ -3243,45 +3118,7 @@ const htmlTemplate = `
             loadAdminBuildings();
         }
 
-        
-        async function saveGeminiKey() {
-            const keyVal = document.getElementById('admin-gemini-key').value.trim();
-            if(!keyVal) return showModalAlert('키를 입력해주세요.');
-            
-            const { error } = await supabaseClient.from('system_settings').upsert(
-                { key_name: 'GEMINI_API_KEY', key_value: keyVal },
-                { onConflict: 'key_name' }
-            );
-            
-            if (error) {
-                console.error(error);
-                showModalAlert('저장 실패: system_settings 테이블이 없거나 권한이 없습니다.');
-            } else {
-                showModalAlert('API Key가 성공적으로 저장되었습니다.');
-            }
-        }
-
-        async function loadGeminiKeyIntoAdmin() {
-            if (!supabaseClient) return;
-            try {
-                const { data } = await supabaseClient.from('system_settings').select('key_value').eq('key_name', 'GEMINI_API_KEY').single();
-                if (data && data.key_value) {
-                    const el = document.getElementById('admin-gemini-key');
-                    if (el) el.value = data.key_value;
-                }
-            } catch(e) {}
-        }
-
-        async function getGeminiApiKey() {
-            if (!supabaseClient) return null;
-            try {
-                const { data } = await supabaseClient.from('system_settings').select('key_value').eq('key_name', 'GEMINI_API_KEY').single();
-                return data ? data.key_value : null;
-            } catch(e) {
-                return null;
-            }
-        }
-\n        async function executeGeminiExtraction() {
+        async function executeGeminiExtraction() {
             const previewImage = document.getElementById('ocr-preview-img');
             if (!previewImage || !previewImage.src || previewImage.src === '') {
                 showModalAlert('분석할 계약서 이미지가 없습니다.');
@@ -3296,9 +3133,8 @@ const htmlTemplate = `
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                          imageBase64: previewImage.src,
-                          apiKey: await getGeminiApiKey()
-                      })
+                        imageBase64: previewImage.src
+                    })
                 });
                 
                 const result = await response.json();

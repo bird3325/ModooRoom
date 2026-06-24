@@ -1,0 +1,1 @@
+window.IS_ADMIN_ROUTE = true;
