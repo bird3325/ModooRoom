@@ -117,26 +117,91 @@
 ```
 
 ### 7.2 데이터베이스 스키마 (`contracts` 테이블)
-`buildings` 테이블과 1:N 또는 1:1 형태로 연동되는 `contracts` 테이블의 스펙입니다.
-- `id` (UUID, Primary Key)
-- `building_id` (UUID, Foreign Key -> buildings.id)
-- `room_number` (String)
-- `area` (String)
-- `deposit` (Number)
-- `monthly_rent` (Number)
-- `maintenance_fee` (Number)
-- `cleaning_fee` (Number)
-- `contract_date` (String)
-- `lease_period` (String)
-- `tenant_name` (String)
-- `tenant_phone` (String)
-- `broker_address` (String)
-- `broker_agency_name` (String)
-- `broker_rep_name` (String)
-- `broker_reg_number` (String)
-- `broker_phone` (String)
-- `contract_image_url` (Text)
-- `created_at` (Timestamp)
+`buildings` 테이블과 1:N 또는 1:1 형태로 연동되는 `contracts` 테이블의 스펙입니다. AI 15개 항목 자동 추출 데이터를 모두 담을 수 있도록 설계되었습니다.
+
+- `id` (UUID, Primary Key) : 계약서 데이터의 고유 식별자
+- `building_id` (UUID, Foreign Key -> buildings.id) : 연결된 건물의 고유 ID
+- `owner_id` (UUID, Foreign Key -> auth.users.id) : 데이터를 등록한 임대인(소유자)의 계정 ID (RLS 보안 정책 검증용)
+- `status` (String) : 계약 상태 (예: 'matched' - 매칭 완료, 'manual' - 수동 등록)
+- `room_number` (String) : 1. 임대할 부분 (호실 등 상세 주소)
+- `area` (String) : 2. 면적 (㎡)
+- `deposit` (Number) : 3. 보증금 (원 단위 숫자)
+- `monthly_rent` (Number) : 4. 차임(월세) (원 단위 숫자)
+- `maintenance_fee` (Number) : 5. 관리비 (원 단위 숫자)
+- `cleaning_fee` (Number) : 6. 청소비 (원 단위 숫자)
+- `contract_date` (String) : 7. 계약일 (YYYY-MM-DD 형식 등)
+- `lease_period` (String) : 8. 임대차 기간 (시작일 ~ 종료일)
+- `tenant_name` (String) : 9. 임차인 성명
+- `tenant_phone` (String) : 10. 임차인 전화번호
+- `broker_address` (String) : 11. 개업공인중개사 사무소 소재지
+- `broker_agency_name` (String) : 12. 개업공인중개사 명칭
+- `broker_rep_name` (String) : 13. 개업공인중개사 대표자 성명
+- `broker_reg_number` (String) : 14. 개업공인중개사 등록번호
+- `broker_phone` (String) : 15. 개업공인중개사 전화번호
+- `contract_image_url` (Text) : 마스킹 처리된 계약서 원본 이미지 URL
+- `created_at` (Timestamp) : 데이터 생성 일시
+
+#### Supabase SQL 적용 쿼리
+```sql
+-- 1. contracts 테이블이 없다면 새로 생성하는 쿼리입니다.
+CREATE TABLE IF NOT EXISTS public.contracts (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    building_id UUID REFERENCES public.buildings(id) ON DELETE CASCADE,
+    owner_id UUID REFERENCES auth.users(id),
+    status TEXT DEFAULT 'manual',
+    room_number TEXT,
+    area TEXT,
+    deposit BIGINT DEFAULT 0,
+    monthly_rent BIGINT DEFAULT 0,
+    maintenance_fee BIGINT DEFAULT 0,
+    cleaning_fee BIGINT DEFAULT 0,
+    contract_date TEXT,
+    lease_period TEXT,
+    tenant_name TEXT,
+    tenant_phone TEXT,
+    broker_address TEXT,
+    broker_agency_name TEXT,
+    broker_rep_name TEXT,
+    broker_reg_number TEXT,
+    broker_phone TEXT,
+    contract_image_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 2. 이미 테이블이 존재한다면 누락된 컬럼만 추가하는 ALTER 쿼리입니다.
+ALTER TABLE public.contracts
+ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES auth.users(id),
+ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'manual',
+ADD COLUMN IF NOT EXISTS room_number TEXT,
+ADD COLUMN IF NOT EXISTS area TEXT,
+ADD COLUMN IF NOT EXISTS deposit BIGINT DEFAULT 0,
+ADD COLUMN IF NOT EXISTS monthly_rent BIGINT DEFAULT 0,
+ADD COLUMN IF NOT EXISTS maintenance_fee BIGINT DEFAULT 0,
+ADD COLUMN IF NOT EXISTS cleaning_fee BIGINT DEFAULT 0,
+ADD COLUMN IF NOT EXISTS contract_date TEXT,
+ADD COLUMN IF NOT EXISTS lease_period TEXT,
+ADD COLUMN IF NOT EXISTS tenant_name TEXT,
+ADD COLUMN IF NOT EXISTS tenant_phone TEXT,
+ADD COLUMN IF NOT EXISTS broker_address TEXT,
+ADD COLUMN IF NOT EXISTS broker_agency_name TEXT,
+ADD COLUMN IF NOT EXISTS broker_rep_name TEXT,
+ADD COLUMN IF NOT EXISTS broker_reg_number TEXT,
+ADD COLUMN IF NOT EXISTS broker_phone TEXT,
+ADD COLUMN IF NOT EXISTS contract_image_url TEXT;
+
+-- 3. 안전한 RLS(Row Level Security) 정책을 켜고 설정합니다.
+ALTER TABLE public.contracts ENABLE ROW LEVEL SECURITY;
+
+-- 본인이 작성한 데이터만 볼 수 있는 정책
+CREATE POLICY "Enable read for users based on owner_id" 
+ON public.contracts FOR SELECT 
+USING (auth.uid() = owner_id);
+
+-- 본인 계정으로만 데이터를 넣을 수 있는 정책
+CREATE POLICY "Enable insert for authenticated users only" 
+ON public.contracts FOR INSERT 
+WITH CHECK (auth.uid() = owner_id);
+```
 
 ### 7.2 자재 및 재고 관리 규칙 한계치
 - LED 전등: `3`개 / 도어락 배터리: `10`개 / 싱크대 수전: `1`개 / 배수구 트랩: `2`개

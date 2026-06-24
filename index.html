@@ -1,46 +1,3 @@
-const http = require('http');
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
-const OcrService = require('./src/services/ocrService');
-const NotificationService = require('./src/services/notificationService');
-const InventoryService = require('./src/services/inventoryService');
-const ImageUtils = require('./src/utils/imageUtils');
-const SecurityService = require('./src/services/securityService');
-
-const PORT = 3000;
-const inventoryService = new InventoryService();
-const securityService = new SecurityService();
-
-// 임시 데이터베이스 (메모리 저장소)
-const pendingContracts = []; // 임차인이 등록하고 임대인 승인을 기다리는 계약들
-const matchedContracts = []; // 임대인이 승인하여 매칭이 완료된 계약들
-const registeredBuildings = []; // 임대인이 등록한 건물 목록
-let supabaseConfig = { url: '', key: '' }; // Supabase 연동 설정
-let publicDataApiKey = ''; // 공공데이터포털 API Key
-
-try {
-    const envPath = path.join(__dirname, '.env');
-    if (fs.existsSync(envPath)) {
-        const envContent = fs.readFileSync(envPath, 'utf8');
-        envContent.split('\n').forEach(line => {
-            const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
-            if (match) {
-                const key = match[1];
-                let value = match[2] || '';
-                value = value.trim(); // Add trim just in case
-                if (key === 'SUPABASE_URL') supabaseConfig.url = value;
-                if (key === 'SUPABASE_ANON_KEY') supabaseConfig.key = value;
-                if (key === 'ServiceKey' || key === 'PUBLIC_DATA_API_KEY') publicDataApiKey = value;
-            }
-        });
-    }
-    console.log('Loaded supabaseConfig:', supabaseConfig);
-} catch (e) {
-    console.error('.env 파일을 읽는 중 오류 발생:', e);
-}
-
-const htmlTemplate = `
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -750,53 +707,6 @@ const htmlTemplate = `
         </div>
     </div>
 
-    <!-- 계약서 OCR 추출 뷰 -->
-    <div id="ocr-extraction-view" class="hidden">
-        <nav class="navbar">
-            <div class="nav-title">
-                <i class="fa-solid fa-arrow-left" onclick="showView('owner-app')" style="cursor:pointer; margin-right: 15px;"></i>
-                새 건물 계약 등록 (AI 자동 추출)
-            </div>
-        </nav>
-        <div class="content-area" style="padding: 20px; max-width: 1200px; margin: 0 auto;">
-            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 20px; display: flex; gap: 20px; flex-wrap: wrap;">
-                
-                <!-- 왼쪽: 계약서 이미지 미리보기 -->
-                <div style="flex: 1; min-width: 300px; border-right: 1px solid #edf2f7; padding-right: 20px;">
-                    <h4 style="margin-top: 0; color: #2d3748; font-size: 15px; margin-bottom: 15px;">계약서 원본 이미지</h4>
-                    <div style="background: #f7fafc; border: 1px dashed #cbd5e0; border-radius: 8px; padding: 10px; text-align: center; overflow: hidden; position: relative;">
-                        <img id="ocr-preview-img" src="" alt="계약서 미리보기" style="max-width: 100%; max-height: 80vh; object-fit: contain; cursor: crosshair;">
-                    </div>
-                    <p style="font-size: 12px; color: #718096; margin-top: 10px; line-height: 1.5;">
-                        <i class="fa-solid fa-info-circle" style="color: #00acc1;"></i> 좌측 계약서 이미지를 확인하고, <strong>[✨ AI 15개 항목 자동 추출]</strong> 버튼을 누르면 인공지능이 15개 항목을 알아서 채워줍니다. (민감정보 보호를 위해 브라우저에서 자동 마스킹 처리됨). 추출된 결과는 직접 수정 가능합니다.
-                    </p>
-                    <input type="file" id="ocr-manual-file" accept="image/*" style="margin-top: 10px; font-size: 13px;" onchange="loadOcrImage(event)">
-                </div>
-
-                <!-- 오른쪽: 추출 데이터 폼 -->
-                <div style="flex: 1; min-width: 300px;">
-                    <form onsubmit="submitExtractedContract(event)" style="display: flex; flex-direction: column; height: 100%;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #edf2f7; padding-bottom: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0; color: #2d3748; font-size: 15px;">계약 정보 15개 항목</h4>
-                            <button type="button" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 12px; font-size: 13px; border-radius: 6px; box-shadow: 0 2px 4px rgba(118, 75, 162, 0.3);" onclick="executeGeminiExtraction()">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i> AI 15개 항목 자동 추출
-                            </button>
-                        </div>
-                        
-                        <div id="ocr-fields-container" style="flex: 1; overflow-y: auto; padding-right: 10px; max-height: 60vh;">
-                            <!-- JS will populate fields here -->
-                        </div>
-
-                        <div style="margin-top: 20px; border-top: 1px solid #edf2f7; padding-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
-                            <button type="button" class="btn" style="background: #e2e8f0; color: #4a5568;" onclick="showView('owner-app')">취소</button>
-                            <button type="submit" class="btn btn-orange">최종 등록</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- 4. 임차인 메인 대시보드 -->
     <div id="tenant-app" class="hidden">
         <nav class="navbar">
@@ -1303,6 +1213,13 @@ const htmlTemplate = `
 
         function markUserVerified() {
             isAuthenticated = true;
+            if (supabaseClient) {
+                supabaseClient.auth.getSession().then(({ data: { session } }) => {
+                    if (session && session.user) {
+                        supabaseClient.from('profiles').update({ is_verified: true }).eq('id', session.user.id).then(()=>{});
+                    }
+                });
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -1566,7 +1483,6 @@ const htmlTemplate = `
             if(document.getElementById('auth-page')) document.getElementById('auth-page').classList.add('hidden');
             if(document.getElementById('add-building-view')) document.getElementById('add-building-view').classList.add('hidden');
             if(document.getElementById('building-management-page')) document.getElementById('building-management-page').classList.add('hidden');
-            if(document.getElementById('ocr-extraction-view')) document.getElementById('ocr-extraction-view').classList.add('hidden');
 
             if (viewName === 'login') {
                 document.getElementById('login-view').classList.remove('hidden');
@@ -1641,12 +1557,12 @@ const htmlTemplate = `
                                     const bList = document.getElementById('auth-completed-buildings-list');
                                     bList.innerHTML = buildings.map((b) => {
                                         const verifiedBadge = (b.is_verified !== false) ? '<span style="font-size: 11px; background: #e6fffa; color: #319795; padding: 2px 6px; border-radius: 4px; margin-left: 5px;"><i class="fa-solid fa-check"></i> 2차 인증 완료</span>' : '';
-                                        return \`
+                                        return `
                                         <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #edf2f7; text-align: left; margin-bottom: 10px;">
-                                            <p style="font-size: 13px; color: #4a5568; margin: 0 0 5px 0;"><strong>등록 건물명:</strong> \${b.name || '-'} \${verifiedBadge}</p>
-                                            <p style="font-size: 13px; color: #4a5568; margin: 0;"><strong>등록 주소:</strong> \${b.address || '-'}</p>
+                                            <p style="font-size: 13px; color: #4a5568; margin: 0 0 5px 0;"><strong>등록 건물명:</strong> ${b.name || '-'} ${verifiedBadge}</p>
+                                            <p style="font-size: 13px; color: #4a5568; margin: 0;"><strong>등록 주소:</strong> ${b.address || '-'}</p>
                                         </div>
-                                        \`;
+                                        `;
                                     }).join('');
                                 }
                             } else {
@@ -1673,8 +1589,6 @@ const htmlTemplate = `
                 checkTenantMatchStatus();
             } else if (viewName === 'building-management-page') {
                 document.getElementById('building-management-page').classList.remove('hidden');
-            } else if (viewName === 'ocr-extraction-view') {
-                document.getElementById('ocr-extraction-view').classList.remove('hidden');
             }
         }
 
@@ -1887,13 +1801,6 @@ const htmlTemplate = `
 
         async function authenticateOwnerDetailed(event) {
             event.preventDefault();
-            const sessionData = await supabaseClient.auth.getSession();
-            const session = sessionData.data.session;
-            if (!session) {
-                showModalAlert('로그인이 필요합니다.');
-                return;
-            }
-
             const bName = document.getElementById('owner-building-name').value;
             const bAddr = document.getElementById('owner-building-address').value;
             const fileInput = document.getElementById('owner-contract-file');
@@ -1950,28 +1857,6 @@ const htmlTemplate = `
                     }
                     
                     ctx.putImageData(imageData, 0, 0);
-
-                    // 민감정보(주민등록번호) 마스킹 처리
-                    if (window.Tesseract) {
-                        try {
-                            document.getElementById('loading-view').querySelector('h3').innerText = '개인정보 보호를 위해 마스킹 처리 중입니다...';
-                            const worker = await Tesseract.createWorker('kor', 1, { logger: m => console.log(m) });
-                            const ret = await worker.recognize(canvas.toDataURL('image/png'));
-                            const juminRegex = /\d{6}\s*-\s*\d{1,7}/;
-                            ret.data.words.forEach(word => {
-                                if (juminRegex.test(word.text) || (word.text.includes('-') && /\d{6}/.test(word.text))) {
-                                    const bbox = word.bbox;
-                                    ctx.fillStyle = 'black';
-                                    ctx.fillRect(bbox.x0 - 5, bbox.y0 - 5, (bbox.x1 - bbox.x0) + 10, (bbox.y1 - bbox.y0) + 10);
-                                }
-                            });
-                            await worker.terminate();
-                            document.getElementById('loading-view').querySelector('h3').innerText = '마스킹 완료! 계약서 정보를 분석 중입니다...';
-                        } catch (e) {
-                            console.error("마스킹 프로세스 오류:", e);
-                        }
-                    }
-
                     const preprocessedBase64 = canvas.toDataURL('image/png');
 
                     try {
@@ -1997,9 +1882,7 @@ const htmlTemplate = `
                         if (result.matched) {
                             let insertedData = [];
                             let targetBuildingId = null;
-                            let tenantAddMsg = '';
-                            const { data: existingBuildings } = await supabaseClient.from('buildings').select('*').eq('address', bAddr);
-                            const existingBuilding = existingBuildings && existingBuildings.length > 0 ? existingBuildings[0] : null;
+                            const { data: existingBuilding } = await supabaseClient.from('buildings').select('*').eq('address', bAddr).single();
                             if (existingBuilding) {
                                 const { data: updatedData, error: updateError } = await supabaseClient.from('buildings').update({is_verified: true}).eq('id', existingBuilding.id).select();
                                 if (updateError) {
@@ -2015,6 +1898,7 @@ const htmlTemplate = `
                                         const idx = ownerBuildings.findIndex(b => b.id === existingBuilding.id);
                                         if (idx !== -1) ownerBuildings[idx] = updatedData[0];
                                     }
+                                }
                             } else {
                                 const { data: newInserted, error: insertError } = await supabaseClient
                                     .from('buildings')
@@ -2033,31 +1917,55 @@ const htmlTemplate = `
                                 ownerBuildings.push(...insertedData);
                             }
                             
-                            // 기존의 자동 DB 등록을 제거하고, 15개 항목 추출 모달을 띄워 사용자가 검증하도록 변경합니다.
-                            window.ocrTargetBuildingId = targetBuildingId;
-                            
-                            // 원본 이미지를 모달 이미지 뷰어에 등록 (이후 executeGeminiExtraction에서 사용)
-                            const previewImage = document.getElementById('ocr-preview-img');
-                            if (previewImage) {
-                                previewImage.src = preprocessedBase64;
+                            // 임차인 정보 추출 시 DB 등록 처리
+                            if (result.extractedTenant) {
+                                const tenantInsertData = {
+                                    building_id: targetBuildingId,
+                                    owner_id: session.user.id,
+                                    address: bAddr,
+                                                                room: result.extractedTenant.room,
+                                    tenant_name: result.extractedTenant.name
+                                };
+                                const { error: tenantErr } = await supabaseClient.from('tenants').insert([tenantInsertData]);
+                                if (!tenantErr) {
+                                    tenantAddMsg = '
+[임차인: ' + result.extractedTenant.name + '(' + result.extractedTenant.room + ') 자동 등록됨]';
+                                    if (typeof activeTenantsData === 'undefined') window.activeTenantsData = [];
+                                    activeTenantsData.push({ address: bAddr, room: result.extractedTenant.room, tenantName: result.extractedTenant.name });
+                                }
                             }
                             
+                            // 계약서 세부 정보 추출 시 DB 등록 처리
+                            if (result.extractedContract) {
+                                const contractInsertData = {
+                                    building_id: targetBuildingId,
+                                    owner_id: session.user.id,
+                                    deposit: result.extractedContract.deposit,
+                                    rent: result.extractedContract.rent,
+                                    detailed_address: result.extractedContract.detailed_address,
+                                    lease_period: result.extractedContract.lease_period,
+                                    realtor_address: result.extractedContract.realtor_address,
+                                    realtor_name: result.extractedContract.realtor_name,
+                                    realtor_representative: result.extractedContract.realtor_representative,
+                                    realtor_phone: result.extractedContract.realtor_phone,
+                                    realtor_registration_no: result.extractedContract.realtor_registration_no,
+                                    contract_image_url: preprocessedBase64
+                                };
+                                const { error: contractErr } = await supabaseClient.from('contracts').insert([contractInsertData]);
+                                if (contractErr) {
+                                    console.error("contracts insert error:", contractErr);
+                                    alert('계약서 정보 저장 중 오류가 발생했습니다: ' + contractErr.message);
+                                } else {
+                                    console.log("계약서 정보 저장 완료:", contractInsertData);
+                                }
+                            }
+
                             document.getElementById('loading-view').classList.add('hidden');
-                            showModalAlert('계약서 명의 및 주소 인증이 성공적으로 완료되었습니다.\\n[등록/인증건물: ' + bName + ']\\n\\n15개 항목 AI 자동 추출을 시작합니다.');
-                            
-                            // 15개 항목 확인 UI 모달(뷰) 열기
-                            showView('ocr-extraction-view');
-                            
-                            // 자동 추출 실행
-                            if (typeof executeGeminiExtraction === 'function') {
-                                setTimeout(executeGeminiExtraction, 500); // UI 안정화 후 자동 실행
-                            } else {
-                                console.error('executeGeminiExtraction 함수를 찾을 수 없습니다.');
-                            }
                             document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
 
                             markUserVerified();
-                            showModalAlert('계약서 인증이 성공적으로 완료되었습니다.\\n[등록/인증건물: ' + bName + ']' + tenantAddMsg);
+                            showModalAlert('계약서 인증이 성공적으로 완료되었습니다.
+[등록/인증건물: ' + bName + ']' + tenantAddMsg);
                             showView('owner-app');
                         } else {
                             document.getElementById('loading-view').classList.add('hidden');
@@ -2068,7 +1976,7 @@ const htmlTemplate = `
                         console.error(error);
                         document.getElementById('loading-view').classList.add('hidden');
                         document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
-                        showModalAlert('OCR 분석 중 오류가 발생했습니다: ' + error.message);
+                        showModalAlert('OCR 분석 중 오류가 발생했습니다.');
                     }
                 };
                 img.src = base64Data;
@@ -2202,8 +2110,8 @@ const htmlTemplate = `
                        '<div style="position: relative;">' +
                        '<button onclick="toggleBuildingMenu(' + idx + ', event)" style="background: none; border: none; color: #a0aec0; cursor: pointer; padding: 5px;"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
                        '<div id="building-menu-' + idx + '" class="hidden" style="position: absolute; right: 0; top: 25px; background: white; border: 1px solid #edf2f7; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); width: 80px; z-index: 10; overflow: hidden;">' +
-                       '<button onclick="openBuildingManagementPage(' + idx + '); document.getElementById(\\\'building-menu-' + idx + '\\\').classList.add(\\\'hidden\\\');" style="display: block; width: 100%; text-align: left; padding: 10px; border: none; background: none; font-size: 13px; color: #4a5568; cursor: pointer; border-bottom: 1px solid #edf2f7;">수정</button>' +
-                       '<button onclick="deleteBuildingFromPage(' + idx + '); document.getElementById(\\\'building-menu-' + idx + '\\\').classList.add(\\\'hidden\\\');" style="display: block; width: 100%; text-align: left; padding: 10px; border: none; background: none; font-size: 13px; color: #e53e3e; cursor: pointer;">삭제</button>' +
+                       '<button onclick="openBuildingManagementPage(' + idx + '); document.getElementById(\'building-menu-' + idx + '\').classList.add(\'hidden\');" style="display: block; width: 100%; text-align: left; padding: 10px; border: none; background: none; font-size: 13px; color: #4a5568; cursor: pointer; border-bottom: 1px solid #edf2f7;">수정</button>' +
+                       '<button onclick="deleteBuildingFromPage(' + idx + '); document.getElementById(\'building-menu-' + idx + '\').classList.add(\'hidden\');" style="display: block; width: 100%; text-align: left; padding: 10px; border: none; background: none; font-size: 13px; color: #e53e3e; cursor: pointer;">삭제</button>' +
                        '</div>' +
                        '</div>' +
                        '</div>' +
@@ -2363,7 +2271,9 @@ const htmlTemplate = `
                     const { error } = await supabaseClient.from('contracts').insert([payload]);
                     if (error) {
                         console.error('수동 등록 실패:', error);
-                        showModalAlert('DB 저장 실패: ' + error.message + '\\n\\n(참고: contracts 테이블에 tenant_name 등의 추가 컬럼이 반영되어 있어야 합니다.)');
+                        showModalAlert('DB 저장 실패: ' + error.message + '
+
+(참고: contracts 테이블에 tenant_name 등의 추가 컬럼이 반영되어 있어야 합니다.)');
                         return;
                     }
                 } catch(e) {
@@ -2603,15 +2513,15 @@ const htmlTemplate = `
                 .then(res => res.json())
                 .then(data => {
                     const section = document.getElementById('pending-invites-section');
-                    section.innerHTML = data.map((inv, idx) => \`
+                    section.innerHTML = data.map((inv, idx) => `
                         <div class="pending-invite-card">
                             <div>
                                 <h4 style="color: var(--point-orange); font-weight:700;"><i class="fa-solid fa-envelope-open-text"></i> 임차인 연계 요청이 있습니다.</h4>
-                                <p style="font-size:13px; margin-top:4px;"><b>세입자:</b> \${inv.tenantName} | <b>요청 호실:</b> \${inv.room}</p>
+                                <p style="font-size:13px; margin-top:4px;"><b>세입자:</b> ${inv.tenantName} | <b>요청 호실:</b> ${inv.room}</p>
                             </div>
-                            <button class="btn btn-orange" onclick="acceptInvite(\${idx})">매칭 승인</button>
+                            <button class="btn btn-orange" onclick="acceptInvite(${idx})">매칭 승인</button>
                         </div>
-                    \`).join('');
+                    `).join('');
                 });
         }
 
@@ -2711,7 +2621,8 @@ const htmlTemplate = `
                                     ownerBuildings.push(newBuilding);
                                     document.getElementById('loading-view').classList.add('hidden');
                                     document.getElementById('loading-view').querySelector('h3').innerText = '데이터를 처리 중입니다...';
-                                    showModalAlert('새 건물 추가가 완료되었습니다.\\n[추가된 건물: ' + bName + ']');
+                                    showModalAlert('새 건물 추가가 완료되었습니다.
+[추가된 건물: ' + bName + ']');
                                     renderOwnerBuildings();
                                     showView('owner-app');
                                     
@@ -2769,7 +2680,8 @@ const htmlTemplate = `
                                 if (!ownerBuildings) ownerBuildings = [];
                                 ownerBuildings.push(...insertedData);
                                 
-                                showModalAlert('새 건물 추가가 완료되었습니다.\\n[추가된 건물: ' + bName + ']');
+                                showModalAlert('새 건물 추가가 완료되었습니다.
+[추가된 건물: ' + bName + ']');
                                 renderOwnerBuildings();
                                 showView('owner-app');
 
@@ -2789,12 +2701,12 @@ const htmlTemplate = `
             fetch('/api/ocr')
                 .then(res => res.json())
                 .then(res => {
-                    container.innerHTML = \`
+                    container.innerHTML = `
                         <div style="background-color: #f0f4f8; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-light-blue); font-size:13px;">
-                            <b>소재지:</b> \${res.data.property.address} \${res.data.property.room_number}<br>
-                            <b>임차인:</b> \${res.data.tenant.name}님
+                            <b>소재지:</b> ${res.data.property.address} ${res.data.property.room_number}<br>
+                            <b>임차인:</b> ${res.data.tenant.name}님
                         </div>
-                    \`;
+                    `;
                 });
         }
 
@@ -2803,15 +2715,15 @@ const htmlTemplate = `
                 .then(res => res.json())
                 .then(data => {
                     const list = document.getElementById('inventory-list');
-                    list.innerHTML = data.map(item => \`
+                    list.innerHTML = data.map(item => `
                         <div class="inventory-item">
                             <div>
-                                <h4>\${item.name}</h4>
-                                <span style="font-size:12px; color:#718096;">재고: \${item.stock}개</span>
+                                <h4>${item.name}</h4>
+                                <span style="font-size:12px; color:#718096;">재고: ${item.stock}개</span>
                             </div>
-                            <span class="badge \${item.is_low_stock ? 'badge-orange' : 'badge-blue'}">\${item.badge_text}</span>
+                            <span class="badge ${item.is_low_stock ? 'badge-orange' : 'badge-blue'}">${item.badge_text}</span>
                         </div>
-                    \`).join('');
+                    `).join('');
                 });
         }
 
@@ -2909,7 +2821,8 @@ const htmlTemplate = `
                 })
             }).then(() => {
                 markUserVerified();
-                showModalAlert('임대인에게 성공적으로 인증 요청을 발송했습니다!\\n임대인이 승인하면 대시보드에서 계약 정보가 연동됩니다.');
+                showModalAlert('임대인에게 성공적으로 인증 요청을 발송했습니다!
+임대인이 승인하면 대시보드에서 계약 정보가 연동됩니다.');
                 showView('tenant-app');
             });
         }
@@ -2921,7 +2834,8 @@ const htmlTemplate = `
                 return;
             }
             markUserVerified();
-            showModalAlert(phone + ' 번호로 모두의 방 가입 초대 문자가 발송되었습니다!\\n임대인이 가입하시면 추후 자동으로 연동 신청이 가능합니다.');
+            showModalAlert(phone + ' 번호로 모두의 방 가입 초대 문자가 발송되었습니다!
+임대인이 가입하시면 추후 자동으로 연동 신청이 가능합니다.');
             showView('tenant-app');
         }
         let adminUsersData = [];
@@ -2949,11 +2863,11 @@ const htmlTemplate = `
             let filtered = adminUsersData;
 
             if (startDate) {
-                const sDate = new Date(startDate.replace(/\\./g, '-'));
+                const sDate = new Date(startDate.replace(/./g, '-'));
                 filtered = filtered.filter(u => new Date(u.created_at) >= sDate);
             }
             if (endDate) {
-                const end = new Date(endDate.replace(/\\./g, '-'));
+                const end = new Date(endDate.replace(/./g, '-'));
                 end.setHours(23, 59, 59, 999);
                 filtered = filtered.filter(u => new Date(u.created_at) <= end);
             }
@@ -2980,20 +2894,20 @@ const htmlTemplate = `
                 const verifyBtnClass = u.is_verified ? 'btn-orange' : 'btn';
                 const verifyBtnText = u.is_verified ? '인증됨' : '미인증';
                 
-                return \`
+                return `
                     <tr style="border-bottom: 1px solid #e2e8f0;">
-                        <td style="padding: 12px 8px;">\${u.name}</td>
-                        <td style="padding: 12px 8px;">\${u.email}</td>
-                        <td style="padding: 12px 8px;">\${u.phone || '-'}</td>
-                        <td style="padding: 12px 8px;">\${roleBadge}</td>
-                        <td style="padding: 12px 8px; text-align: center;">\${dateStr}</td>
+                        <td style="padding: 12px 8px;">${u.name}</td>
+                        <td style="padding: 12px 8px;">${u.email}</td>
+                        <td style="padding: 12px 8px;">${u.phone || '-'}</td>
+                        <td style="padding: 12px 8px;">${roleBadge}</td>
+                        <td style="padding: 12px 8px; text-align: center;">${dateStr}</td>
                         <td style="padding: 12px 8px; text-align: center;">
-                            <button class="\${verifyBtnClass}" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="toggleVerification('\${u.id}', \${u.is_verified})">\${verifyBtnText}</button>
-                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="openAdminEditModal('\${u.id}', '\${u.name}', '\${u.phone || ''}')">수정</button>
-                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: none; border: none; color: #e53e3e; cursor: pointer; font-weight: bold;" onclick="deleteAdminUser('\${u.id}')">삭제</button>
+                            <button class="${verifyBtnClass}" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="toggleVerification('${u.id}', ${u.is_verified})">${verifyBtnText}</button>
+                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="openAdminEditModal('${u.id}', '${u.name}', '${u.phone || ''}')">수정</button>
+                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: none; border: none; color: #e53e3e; cursor: pointer; font-weight: bold;" onclick="deleteAdminUser('${u.id}')">삭제</button>
                         </td>
                     </tr>
-                \`;
+                `;
             }).join('');
         }
 
@@ -3083,23 +2997,23 @@ const htmlTemplate = `
             }
             list.innerHTML = buildings.map(b => {
                 const ownerName = b.profiles ? b.profiles.name : '알수없음';
-                return \`
+                return `
                 <tr style="border-bottom: 1px solid #edf2f7;">
-                    <td style="padding: 12px 8px; font-weight: 500;">\${b.name || '-'}</td>
-                    <td style="padding: 12px 8px;">\${b.address || '-'}</td>
-                    <td style="padding: 12px 8px; text-align: center;">\${new Date(b.created_at).toLocaleDateString()}</td>
+                    <td style="padding: 12px 8px; font-weight: 500;">${b.name || '-'}</td>
+                    <td style="padding: 12px 8px;">${b.address || '-'}</td>
+                    <td style="padding: 12px 8px; text-align: center;">${new Date(b.created_at).toLocaleDateString()}</td>
                     <td style="padding: 12px 8px; text-align: center;">
-                        \${b.is_verified 
-                            ? \`<span class="badge badge-blue">검증완료 (\${ownerName})</span>\`
-                            : \`<span class="badge badge-orange">미인증 (\${ownerName})</span>\`
+                        ${b.is_verified 
+                            ? `<span class="badge badge-blue">검증완료 (${ownerName})</span>`
+                            : `<span class="badge badge-orange">미인증 (${ownerName})</span>`
                         }
                     </td>
                     <td style="padding: 12px 8px; text-align: center;">
-                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: #ed8936; border: none; color: white; margin-right: 5px;" onclick="toggleBuildingVerify('\${b.id}', \${b.is_verified})">\${b.is_verified ? '인증취소' : '인증승인'}</button>
-                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: #e53e3e; border: none; color: white;" onclick="deleteAdminBuilding('\${b.id}')">삭제</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: #ed8936; border: none; color: white; margin-right: 5px;" onclick="toggleBuildingVerify('${b.id}', ${b.is_verified})">${b.is_verified ? '인증취소' : '인증승인'}</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: #e53e3e; border: none; color: white;" onclick="deleteAdminBuilding('${b.id}')">삭제</button>
                     </td>
                 </tr>
-            \`}).join('');
+            `}).join('');
         }
 
         async function toggleBuildingVerify(id, currentStatus) {
@@ -3116,151 +3030,6 @@ const htmlTemplate = `
             }
             showModalAlert('건물 인증 상태가 변경되었습니다.');
             loadAdminBuildings();
-        }
-
-        async function executeGeminiExtraction() {
-            const previewImage = document.getElementById('ocr-preview-img');
-            if (!previewImage || !previewImage.src || previewImage.src === '') {
-                showModalAlert('분석할 계약서 이미지가 없습니다.');
-                return;
-            }
-            
-            document.getElementById('loading-view').querySelector('h3').innerText = 'AI 모델을 통해 15개 항목을 추출 중입니다...';
-            document.getElementById('loading-view').classList.remove('hidden');
-            
-            try {
-                const response = await fetch('/api/gemini-extract', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        imageBase64: previewImage.src
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (!response.ok || !result.success) {
-                    throw new Error(result.error || 'AI 데이터 추출에 실패했습니다.');
-                }
-                
-                const data = result.data;
-                const fields = [
-                    'ocr_room_number', 'ocr_area', 'ocr_deposit', 'ocr_monthly_rent', 'ocr_maintenance_fee', 'ocr_cleaning_fee',
-                    'ocr_contract_date', 'ocr_lease_period', 'ocr_tenant_name', 'ocr_tenant_phone', 'ocr_broker_address',
-                    'ocr_broker_agency_name', 'ocr_broker_representative', 'ocr_broker_registration_no', 'ocr_broker_phone'
-                ];
-                
-                fields.forEach(fieldId => {
-                    const el = document.getElementById(fieldId);
-                    if (el && data[fieldId] !== undefined) {
-                        el.value = data[fieldId];
-                        // 시각적 피드백 효과
-                        const originalBg = el.style.backgroundColor;
-                        el.style.transition = 'background-color 0.5s';
-                        el.style.backgroundColor = '#e6fffa';
-                        setTimeout(() => {
-                            el.style.backgroundColor = originalBg;
-                        }, 1000);
-                    }
-                });
-                
-            } catch (err) {
-                showModalAlert('오류 발생: ' + err.message);
-            } finally {
-                document.getElementById('loading-view').classList.add('hidden');
-            }
-        }
-
-        async function submitExtractedContract(event) {
-            event.preventDefault();
-            const sessionData = await supabaseClient.auth.getSession();
-            const session = sessionData?.data?.session;
-            if (!session) {
-                showModalAlert('로그인이 필요합니다.');
-                return;
-            }
-
-            const buildingId = window.ocrTargetBuildingId;
-            if (!buildingId) {
-                showModalAlert('선택된 건물이 없습니다.');
-                return;
-            }
-
-            // Get all input values
-            const inputs = document.querySelectorAll('#ocr-fields-container input');
-            const contractData = {};
-            inputs.forEach(input => {
-                contractData[input.id] = input.value;
-            });
-
-            document.getElementById('loading-view').querySelector('h3').innerText = '데이터베이스에 저장 중입니다...';
-            document.getElementById('loading-view').classList.remove('hidden');
-
-            try {
-                // Insert Tenant
-                const { error: tError } = await supabaseClient
-                    .from('tenants')
-                    .insert([{
-                        building_id: buildingId,
-                        owner_id: session.user.id,
-                        address: '',
-                        room: contractData['ocr_room_number'],
-                        tenant_name: contractData['ocr_tenant_name']
-                    }]);
-
-                if (tError) {
-                    throw new Error('임차인 정보 저장 실패: ' + tError.message);
-                }
-
-                // Insert Contract
-                const { error: cError } = await supabaseClient
-                    .from('contracts')
-                    .insert([{
-                        building_id: buildingId,
-                        owner_id: session.user.id,
-                        status: 'matched',
-                        room_number: contractData['ocr_room_number'],
-                        area: contractData['ocr_area'],
-                        deposit: contractData['ocr_deposit'] ? parseInt(contractData['ocr_deposit']) : 0,
-                        monthly_rent: contractData['ocr_monthly_rent'] ? parseInt(contractData['ocr_monthly_rent']) : 0,
-                        maintenance_fee: contractData['ocr_maintenance_fee'] ? parseInt(contractData['ocr_maintenance_fee']) : 0,
-                        cleaning_fee: contractData['ocr_cleaning_fee'] ? parseInt(contractData['ocr_cleaning_fee']) : 0,
-                        contract_date: contractData['ocr_contract_date'],
-                        lease_period: contractData['ocr_lease_period'],
-                        tenant_name: contractData['ocr_tenant_name'],
-                        tenant_phone: contractData['ocr_tenant_phone'],
-                        broker_address: contractData['ocr_broker_address'],
-                        broker_agency_name: contractData['ocr_broker_agency_name'],
-                        broker_rep_name: contractData['ocr_broker_representative'],
-                        broker_reg_number: contractData['ocr_broker_registration_no'],
-                        broker_phone: contractData['ocr_broker_phone']
-                    }]);
-
-                if (cError) {
-                    throw new Error('계약서 세부정보 저장 실패: ' + cError.message);
-                }
-
-                document.getElementById('loading-view').classList.add('hidden');
-                showView('owner-app');
-                showModalAlert('AI 계약서 추출 정보가 성공적으로 저장되었습니다!');
-                
-                // Refresh list if possible
-                if (typeof renderOwnerBuildings === 'function') {
-                    renderOwnerBuildings();
-                }
-
-            } catch (err) {
-                document.getElementById('loading-view').classList.add('hidden');
-                showModalAlert('데이터베이스 저장 중 오류가 발생했습니다: ' + err.message);
-            }
-        }
-
-        function selectDateFromCalendar(dateStr) {
-            if (calendarTargetId) {
-                document.getElementById(calendarTargetId).value = dateStr;
-                filterAdminUsers();
-            }
-            closeCalendarModal();
         }
 
         async function deleteAdminBuilding(id) {
@@ -3382,10 +3151,10 @@ const htmlTemplate = `
             const year = currentCalDate.getFullYear();
             const month = currentCalDate.getMonth();
             
-            let headerHtml = \`
-                <div style="cursor:pointer; padding:2px 5px; border-radius:4px; font-weight:bold; color:var(--primary-deep-navy); font-size:15px;" onmouseover="this.style.background='#edf2f7'" onmouseout="this.style.background='transparent'" onclick="switchCalendarMode('decade')">\${year}년</div>
-                <div style="cursor:pointer; padding:2px 5px; border-radius:4px; font-weight:bold; color:var(--primary-deep-navy); font-size:15px;" onmouseover="this.style.background='#edf2f7'" onmouseout="this.style.background='transparent'" onclick="switchCalendarMode('month')">\${month + 1}월</div>
-            \`;
+            let headerHtml = `
+                <div style="cursor:pointer; padding:2px 5px; border-radius:4px; font-weight:bold; color:var(--primary-deep-navy); font-size:15px;" onmouseover="this.style.background='#edf2f7'" onmouseout="this.style.background='transparent'" onclick="switchCalendarMode('decade')">${year}년</div>
+                <div style="cursor:pointer; padding:2px 5px; border-radius:4px; font-weight:bold; color:var(--primary-deep-navy); font-size:15px;" onmouseover="this.style.background='#edf2f7'" onmouseout="this.style.background='transparent'" onclick="switchCalendarMode('month')">${month + 1}월</div>
+            `;
             document.getElementById('calendar-month-year').innerHTML = headerHtml;
 
             const gridEl = document.getElementById('calendar-grid');
@@ -3399,12 +3168,12 @@ const htmlTemplate = `
                 gridEl.style.maxHeight = 'none';
                 gridEl.style.overflowY = 'visible';
                 for (let d = decadePageStart; d < decadePageStart + 120; d += 10) {
-                    gridHtml += \`
+                    gridHtml += `
                         <div style="padding: 15px 5px; cursor: pointer; border-radius: 4px; transition: 0.2s;" 
                              onmouseover="this.style.background='#edf2f7'" 
                              onmouseout="this.style.background='transparent'" 
-                             onclick="setCalendarDecade(\${d})">\${d}년대</div>
-                    \`;
+                             onclick="setCalendarDecade(${d})">${d}년대</div>
+                    `;
                 }
             } else if (currentCalMode === 'year') {
                 daysHeader.style.display = 'none';
@@ -3412,12 +3181,12 @@ const htmlTemplate = `
                 gridEl.style.maxHeight = 'none';
                 gridEl.style.overflowY = 'visible';
                 for (let y = selectedDecadeStart; y < selectedDecadeStart + 12; y++) {
-                    gridHtml += \`
-                        <div style="padding: 15px 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; \${y === year ? 'background:var(--primary-light-blue);color:white;' : ''}" 
-                             onmouseover="if(\${y !== year}) this.style.background='#edf2f7'" 
-                             onmouseout="if(\${y !== year}) this.style.background='transparent'" 
-                             onclick="setCalendarYearMonth(\${y}, 'year')">\${y}</div>
-                    \`;
+                    gridHtml += `
+                        <div style="padding: 15px 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; ${y === year ? 'background:var(--primary-light-blue);color:white;' : ''}" 
+                             onmouseover="if(${y !== year}) this.style.background='#edf2f7'" 
+                             onmouseout="if(${y !== year}) this.style.background='transparent'" 
+                             onclick="setCalendarYearMonth(${y}, 'year')">${y}</div>
+                    `;
                 }
             } else if (currentCalMode === 'month') {
                 daysHeader.style.display = 'none';
@@ -3425,12 +3194,12 @@ const htmlTemplate = `
                 gridEl.style.maxHeight = 'none';
                 gridEl.style.overflowY = 'visible';
                 for (let m = 0; m < 12; m++) {
-                    gridHtml += \`
-                        <div style="padding: 10px 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; \${m === month ? 'background:var(--primary-light-blue);color:white;' : ''}" 
-                             onmouseover="if(\${m !== month}) this.style.background='#edf2f7'" 
-                             onmouseout="if(\${m !== month}) this.style.background='transparent'" 
-                             onclick="setCalendarYearMonth(\${m}, 'month')">\${m + 1}월</div>
-                    \`;
+                    gridHtml += `
+                        <div style="padding: 10px 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; ${m === month ? 'background:var(--primary-light-blue);color:white;' : ''}" 
+                             onmouseover="if(${m !== month}) this.style.background='#edf2f7'" 
+                             onmouseout="if(${m !== month}) this.style.background='transparent'" 
+                             onclick="setCalendarYearMonth(${m}, 'month')">${m + 1}월</div>
+                    `;
                 }
             } else {
                 daysHeader.style.display = 'grid';
@@ -3457,7 +3226,7 @@ const htmlTemplate = `
                     if (dayOfWeek === 0) textColor = '#e53e3e';
                     else if (dayOfWeek === 6) textColor = '#3182ce';
 
-                    let styleStr = \`padding: 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; color: \${textColor};\`;
+                    let styleStr = padding: 5px; cursor: pointer; border-radius: 4px; transition: 0.2s; color: ;;
                     if (isSelected) {
                         styleStr += ' background: var(--primary-light-blue); color: white; font-weight: bold; border: 1px solid var(--primary-light-blue);';
                     } else if (isToday) {
@@ -3466,12 +3235,12 @@ const htmlTemplate = `
                         styleStr += ' border: 1px solid transparent;';
                     }
 
-                    gridHtml += \`
-                        <div style="\${styleStr}" 
-                             onmouseover="if(!\${isSelected}) this.style.background='#edf2f7'" 
-                             onmouseout="if(!\${isSelected}) this.style.background='transparent'" 
-                             onclick="selectCalendarDate('\${dateStr}')">\${d}</div>
-                    \`;
+                    gridHtml += `
+                        <div style="${styleStr}" 
+                             onmouseover="if(!${isSelected}) this.style.background='#edf2f7'" 
+                             onmouseout="if(!${isSelected}) this.style.background='transparent'" 
+                             onclick="selectCalendarDate('${dateStr}')">${d}</div>
+                    `;
                 }
             }
             gridEl.innerHTML = gridHtml;
@@ -3487,273 +3256,3 @@ const htmlTemplate = `
     </script>
 </body>
 </html>
-`;
-
-// HTTP Server
-const server = http.createServer(async (req, res) => {
-  const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
-  
-  if (req.method === 'GET' && (parsedUrl.pathname === '/' || parsedUrl.pathname === '/index.html' || parsedUrl.pathname === '/admin')) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    let content = htmlTemplate;
-    if (parsedUrl.pathname === '/admin') {
-      content = content.replace('</head>', '<script>window.IS_ADMIN_ROUTE = true;</script></head>');
-    }
-    res.end(content);
-  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/inventory') {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(inventoryService.getItemsStatus()));
-  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/ocr') {
-    const ocrResult = await OcrService.parseContractImage('uploaded_file.jpg');
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(ocrResult));
-  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/pending-invites') {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(pendingContracts));
-  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/matched-tenants') {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(matchedContracts));
-  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/tenant-status') {
-    const tenantName = parsedUrl.searchParams.get('name');
-    const matched = matchedContracts.find(c => tenantName && (tenantName.includes(c.tenantName) || c.tenantName.includes(tenantName)));
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    if (matched) {
-        res.end(JSON.stringify({ matched: true, info: matched }));
-    } else {
-        res.end(JSON.stringify({ matched: false }));
-    }
-  } else if (req.method === 'POST' && parsedUrl.pathname === '/api/register-building') {
-    let body = '';
-    req.on('data', chunk => { body += chunk.toString(); });
-    req.on('end', () => {
-      const data = JSON.parse(body);
-      registeredBuildings.push(data);
-      console.log(`[임대인 건물 등록] 주소: ${data.address}, 건물명: ${data.name}`);
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true }));
-    });
-  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/config/supabase') {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(supabaseConfig));
-  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/search-building') {
-    const address = parsedUrl.searchParams.get('address');
-    const matchedBuilding = registeredBuildings.find(b => b.address === address);
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    if (matchedBuilding) {
-        res.end(JSON.stringify({ isRegistered: true, building: matchedBuilding }));
-    } else {
-        res.end(JSON.stringify({ isRegistered: false }));
-    }
-  } else if (req.method === 'POST' && parsedUrl.pathname === '/api/invite-owner') {
-    let body = '';
-    req.on('data', chunk => { body += chunk.toString(); });
-    req.on('end', () => {
-      const data = JSON.parse(body);
-      pendingContracts.push(data); // 대기 매칭 리스트 추가
-      console.log(`[임차인 역제안 초대 발송 완료] 임대인명: ${data.ownerName}, 호실: ${data.room}`);
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true }));
-    });
-  } else if (req.method === 'POST' && parsedUrl.pathname === '/api/accept-invite') {
-    let body = '';
-    req.on('data', chunk => { body += chunk.toString(); });
-    req.on('end', () => {
-      const { index } = JSON.parse(body);
-      if (index > -1 && index < pendingContracts.length) {
-        const matched = pendingContracts.splice(index, 1)[0]; // 대기열에서 제거 (승인 완료)
-        matchedContracts.push(matched); // 매칭 완료 리스트로 이동
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true }));
-    });
-  } else if (req.method === 'POST' && parsedUrl.pathname === '/api/verify-contract-ocr') {
-    let body = '';
-    req.on('data', chunk => { body += chunk.toString(); });
-    req.on('end', async () => {
-      try {
-        const data = JSON.parse(body);
-        const imageBase64 = data.imageBase64;
-        const ownerName = data.ownerName;
-        const bAddr = data.bAddr;
-
-        if (!imageBase64 || !ownerName || !bAddr) {
-            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-            return res.end(JSON.stringify({ success: false, error: '계약서 이미지, 임대인 이름 또는 건물 주소가 누락되었습니다.' }));
-        }
-
-        const tesseract = require('tesseract.js');
-        // Base64 헤더 제거 (e.g., data:image/png;base64,...)
-        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-        const buffer = Buffer.from(base64Data, 'base64');
-        
-        console.log(`[OCR 분석 시작] 대상 명의자: ${ownerName}, 대상 주소: ${bAddr}`);
-        
-        // Tesseract.js 언어팩(kor) 자동 다운로드 및 텍스트 추출 (최초 1회 다운로드 소요)
-        const result = await tesseract.recognize(buffer, 'kor');
-        const text = result.data.text;
-        
-        console.log(`[OCR 분석 완료] 추출된 텍스트 길이: ${text.length}`);
-        
-        // 공백 및 줄바꿈 제거 후 매칭 검사
-        const cleanText = text.replace(/\s+/g, '');
-        const cleanOwnerName = ownerName.replace(/\s+/g, '');
-        
-        // 1. 이름 검증 (유연한 매칭)
-        let isNameMatched = cleanText.includes(cleanOwnerName);
-        if (!isNameMatched && cleanOwnerName.length >= 2) {
-            // OCR 인식 오류 감안: 연속된 2글자가 포함되어 있는지 확인
-            for (let i = 0; i < cleanOwnerName.length - 1; i++) {
-                if (cleanText.includes(cleanOwnerName.substring(i, i + 2))) {
-                    isNameMatched = true;
-                    break;
-                }
-            }
-        }
-        
-        // 2. 주소 검증 (토큰 단위 유연한 매칭)
-        const addrParts = bAddr.split(/\s+/).filter(p => p.length > 0);
-        let matchedAddrCount = 0;
-        for (let part of addrParts) {
-            // '서울' -> '서울특별시' 등 축약어/풀네임 차이 완화
-            if (part === '서울') part = '서울';
-            if (cleanText.includes(part) || text.includes(part)) {
-                matchedAddrCount++;
-            } else if (part === '서울' && cleanText.includes('서울특별시')) {
-                matchedAddrCount++;
-            } else if (part === '경기' && cleanText.includes('경기도')) {
-                matchedAddrCount++;
-            }
-        }
-        // 주소 구성 요소 중 50% 이상 일치하거나, 건물 번지수(마지막 토큰)가 일치하면 인정
-        const lastToken = addrParts[addrParts.length - 1];
-        const isAddrMatched = (matchedAddrCount >= Math.ceil(addrParts.length / 2)) || (lastToken && cleanText.includes(lastToken) && lastToken.length >= 2);
-        
-        // 3. 계약서 필수 키워드 확인 ('소재지', '소재시', '임대인', '성명' 등)
-        const hasContractKeywords = cleanText.includes('소재지') || cleanText.includes('소재시') || cleanText.includes('임대인') || cleanText.includes('성명');
-        
-        console.log("=== OCR 추출 텍스트 (앞부분) ===");
-        console.log(text.substring(0, 500));
-        console.log("================================");
-        
-        if (!hasContractKeywords) {
-            console.log("[OCR 매칭 실패] 계약서 양식이 아님 (필수 단어 미검출)");
-            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-            return res.end(JSON.stringify({ success: false, error: '첨부하신 이미지가 임대차 계약서가 아닌 것 같습니다.\\n(계약서 필수 식별 단어가 검출되지 않았습니다.)' }));
-        }
-
-        // 4. 임차인 정보 및 호실 추출 시도 (가상)
-        let extractedTenant = null;
-        const tenantNameMatch = cleanText.match(/임차인(?:성명)?(?:[^\\w가-힣]{0,3})([가-힣]{2,4})/);
-        const roomMatch = cleanText.match(/(?:제\\s*|호실\\s*|\\s)([0-9]{2,4})\\s*호/);
-        
-        if (tenantNameMatch || roomMatch) {
-            extractedTenant = {
-                name: tenantNameMatch ? tenantNameMatch[1] : '임차인',
-                room: roomMatch ? roomMatch[1] + '호' : '미지정'
-            };
-        }
-
-        // 5. 계약서 세부 정보 추출 시도 (가상)
-        let extractedContract = {
-            deposit: null,
-            rent: null,
-            detailed_address: extractedTenant ? extractedTenant.room : null,
-            lease_period: null,
-            realtor_address: null,
-            realtor_name: null,
-            realtor_representative: null,
-            realtor_phone: null,
-            realtor_registration_no: null
-        };
-        
-        const depositMatch = cleanText.match(/보증금[^0-9]*([0-9,]+(?:만)?)\s*원?/);
-        extractedContract.deposit = depositMatch ? depositMatch[1] : (cleanText.includes('보증금') ? '확인필요' : null);
-        
-        const rentMatch = cleanText.match(/차임[^0-9]*([0-9,]+(?:만)?)\s*원?/);
-        extractedContract.rent = rentMatch ? rentMatch[1] : (cleanText.includes('차임') || cleanText.includes('월세') ? '확인필요' : null);
-        
-        const leasePeriodMatch = cleanText.match(/([0-9]{4}년\s*[0-9]{1,2}월\s*[0-9]{1,2}일부터.*?[0-9]{4}년\s*[0-9]{1,2}월\s*[0-9]{1,2}일)/);
-        extractedContract.lease_period = leasePeriodMatch ? leasePeriodMatch[1] : (cleanText.includes('존속기간') || cleanText.includes('임대기간') ? '자동 추출 실패 (수동 확인 필요)' : null);
-        
-        const realtorAddrMatch = cleanText.match(/중개사무소소재지([^명칭등록]+)/);
-        extractedContract.realtor_address = realtorAddrMatch ? realtorAddrMatch[1] : '추출 실패';
-        
-        const realtorNameMatch = cleanText.match(/명칭([^대표]+)/);
-        extractedContract.realtor_name = realtorNameMatch ? realtorNameMatch[1] : '추출 실패';
-        
-        const realtorRepMatch = cleanText.match(/대표([^전화등록]+)/);
-        extractedContract.realtor_representative = realtorRepMatch ? realtorRepMatch[1] : '추출 실패';
-        
-        const realtorPhoneMatch = cleanText.match(/전화([0-9-]+)/);
-        extractedContract.realtor_phone = realtorPhoneMatch ? realtorPhoneMatch[1] : '추출 실패';
-        
-        const realtorRegMatch = cleanText.match(/등록번호([가-힣0-9-]+)/);
-        extractedContract.realtor_registration_no = realtorRegMatch ? realtorRegMatch[1] : '추출 실패';
-
-        // 최종 판별: 이름과 주소가 모두 (유연한 기준을 통과하여) 일치해야 성공 처리
-        let matched = (isNameMatched && isAddrMatched);
-        
-        console.log(`[OCR 매칭 결과] 이름: \${isNameMatched}, 주소: \${isAddrMatched}, 양식확인: \${hasContractKeywords} -> 최종: \${matched ? '일치' : '불일치'}`);
-        
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: true, matched: matched, extractedTenant: extractedTenant, extractedContract: extractedContract }));
-      } catch (err) {
-        console.error('[OCR 처리 중 에러 발생]', err);
-        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: false, error: 'OCR 이미지 처리 중 오류가 발생했습니다.' }));
-      }
-    });
-  } else if (req.method === 'POST' && parsedUrl.pathname === '/api/gemini-extract') {
-    let body = '';
-    req.on('data', chunk => { body += chunk.toString(); });
-    req.on('end', async () => {
-      try {
-        const data = JSON.parse(body);
-        const imageBase64 = data.imageBase64;
-        if (!imageBase64) {
-            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-            return res.end(JSON.stringify({ success: false, error: '계약서 이미지가 누락되었습니다.' }));
-        }
-
-        console.log('[Gemini API 호출 시뮬레이션 시작...]');
-        // AI 모델 시뮬레이션 딜레이 1.5초
-        setTimeout(() => {
-          const result = {
-            success: true,
-            data: {
-              ocr_room_number: "302호",
-              ocr_area: "24.5",
-              ocr_deposit: "10000000",
-              ocr_monthly_rent: "550000",
-              ocr_maintenance_fee: "70000",
-              ocr_cleaning_fee: "0",
-              ocr_contract_date: "2026-06-16",
-              ocr_lease_period: "2026-06-16 ~ 2028-06-15",
-              ocr_tenant_name: "홍길동",
-              ocr_tenant_phone: "010-1234-5678",
-              ocr_broker_address: "서울특별시 마포구 백범로 123",
-              ocr_broker_agency_name: "대박공인중개사사무소",
-              ocr_broker_representative: "김대박",
-              ocr_broker_registration_no: "11440-2015-00123",
-              ocr_broker_phone: "02-987-6543"
-            }
-          };
-          console.log('[Gemini API 호출 성공: 15개 항목 추출 완료]');
-          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify(result));
-        }, 1500);
-      } catch (err) {
-        console.error('[Gemini 추출 에러]', err);
-        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: false, error: 'AI 데이터 추출 중 오류가 발생했습니다.' }));
-      }
-    });
-  } else {
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not Found');
-  }
-});
-
-server.listen(PORT, () => {
-  console.log(`[ModuRoom] 로컬 개발 서버가 작동 중입니다: http://localhost:${PORT}`);
-});

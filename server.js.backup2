@@ -750,53 +750,6 @@ const htmlTemplate = `
         </div>
     </div>
 
-    <!-- 계약서 OCR 추출 뷰 -->
-    <div id="ocr-extraction-view" class="hidden">
-        <nav class="navbar">
-            <div class="nav-title">
-                <i class="fa-solid fa-arrow-left" onclick="showView('owner-app')" style="cursor:pointer; margin-right: 15px;"></i>
-                새 건물 계약 등록 (AI 자동 추출)
-            </div>
-        </nav>
-        <div class="content-area" style="padding: 20px; max-width: 1200px; margin: 0 auto;">
-            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 20px; display: flex; gap: 20px; flex-wrap: wrap;">
-                
-                <!-- 왼쪽: 계약서 이미지 미리보기 -->
-                <div style="flex: 1; min-width: 300px; border-right: 1px solid #edf2f7; padding-right: 20px;">
-                    <h4 style="margin-top: 0; color: #2d3748; font-size: 15px; margin-bottom: 15px;">계약서 원본 이미지</h4>
-                    <div style="background: #f7fafc; border: 1px dashed #cbd5e0; border-radius: 8px; padding: 10px; text-align: center; overflow: hidden; position: relative;">
-                        <img id="ocr-preview-img" src="" alt="계약서 미리보기" style="max-width: 100%; max-height: 80vh; object-fit: contain; cursor: crosshair;">
-                    </div>
-                    <p style="font-size: 12px; color: #718096; margin-top: 10px; line-height: 1.5;">
-                        <i class="fa-solid fa-info-circle" style="color: #00acc1;"></i> 좌측 계약서 이미지를 확인하고, <strong>[✨ AI 15개 항목 자동 추출]</strong> 버튼을 누르면 인공지능이 15개 항목을 알아서 채워줍니다. (민감정보 보호를 위해 브라우저에서 자동 마스킹 처리됨). 추출된 결과는 직접 수정 가능합니다.
-                    </p>
-                    <input type="file" id="ocr-manual-file" accept="image/*" style="margin-top: 10px; font-size: 13px;" onchange="loadOcrImage(event)">
-                </div>
-
-                <!-- 오른쪽: 추출 데이터 폼 -->
-                <div style="flex: 1; min-width: 300px;">
-                    <form onsubmit="submitExtractedContract(event)" style="display: flex; flex-direction: column; height: 100%;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #edf2f7; padding-bottom: 10px; margin-bottom: 15px;">
-                            <h4 style="margin: 0; color: #2d3748; font-size: 15px;">계약 정보 15개 항목</h4>
-                            <button type="button" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 12px; font-size: 13px; border-radius: 6px; box-shadow: 0 2px 4px rgba(118, 75, 162, 0.3);" onclick="executeGeminiExtraction()">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i> AI 15개 항목 자동 추출
-                            </button>
-                        </div>
-                        
-                        <div id="ocr-fields-container" style="flex: 1; overflow-y: auto; padding-right: 10px; max-height: 60vh;">
-                            <!-- JS will populate fields here -->
-                        </div>
-
-                        <div style="margin-top: 20px; border-top: 1px solid #edf2f7; padding-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
-                            <button type="button" class="btn" style="background: #e2e8f0; color: #4a5568;" onclick="showView('owner-app')">취소</button>
-                            <button type="submit" class="btn btn-orange">최종 등록</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- 4. 임차인 메인 대시보드 -->
     <div id="tenant-app" class="hidden">
         <nav class="navbar">
@@ -1303,6 +1256,13 @@ const htmlTemplate = `
 
         function markUserVerified() {
             isAuthenticated = true;
+            if (supabaseClient) {
+                supabaseClient.auth.getSession().then(({ data: { session } }) => {
+                    if (session && session.user) {
+                        supabaseClient.from('profiles').update({ is_verified: true }).eq('id', session.user.id).then(()=>{});
+                    }
+                });
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -1566,7 +1526,6 @@ const htmlTemplate = `
             if(document.getElementById('auth-page')) document.getElementById('auth-page').classList.add('hidden');
             if(document.getElementById('add-building-view')) document.getElementById('add-building-view').classList.add('hidden');
             if(document.getElementById('building-management-page')) document.getElementById('building-management-page').classList.add('hidden');
-            if(document.getElementById('ocr-extraction-view')) document.getElementById('ocr-extraction-view').classList.add('hidden');
 
             if (viewName === 'login') {
                 document.getElementById('login-view').classList.remove('hidden');
@@ -1673,8 +1632,6 @@ const htmlTemplate = `
                 checkTenantMatchStatus();
             } else if (viewName === 'building-management-page') {
                 document.getElementById('building-management-page').classList.remove('hidden');
-            } else if (viewName === 'ocr-extraction-view') {
-                document.getElementById('ocr-extraction-view').classList.remove('hidden');
             }
         }
 
@@ -1998,8 +1955,7 @@ const htmlTemplate = `
                             let insertedData = [];
                             let targetBuildingId = null;
                             let tenantAddMsg = '';
-                            const { data: existingBuildings } = await supabaseClient.from('buildings').select('*').eq('address', bAddr);
-                            const existingBuilding = existingBuildings && existingBuildings.length > 0 ? existingBuildings[0] : null;
+                            const { data: existingBuilding } = await supabaseClient.from('buildings').select('*').eq('address', bAddr).single();
                             if (existingBuilding) {
                                 const { data: updatedData, error: updateError } = await supabaseClient.from('buildings').update({is_verified: true}).eq('id', existingBuilding.id).select();
                                 if (updateError) {
@@ -2033,27 +1989,49 @@ const htmlTemplate = `
                                 ownerBuildings.push(...insertedData);
                             }
                             
-                            // 기존의 자동 DB 등록을 제거하고, 15개 항목 추출 모달을 띄워 사용자가 검증하도록 변경합니다.
-                            window.ocrTargetBuildingId = targetBuildingId;
-                            
-                            // 원본 이미지를 모달 이미지 뷰어에 등록 (이후 executeGeminiExtraction에서 사용)
-                            const previewImage = document.getElementById('ocr-preview-img');
-                            if (previewImage) {
-                                previewImage.src = preprocessedBase64;
+                            // 임차인 정보 추출 시 DB 등록 처리
+                            if (result.extractedTenant) {
+                                const tenantInsertData = {
+                                    building_id: targetBuildingId,
+                                    owner_id: session.user.id,
+                                    address: bAddr,
+                                    room: result.extractedTenant.room,
+                                    tenant_name: result.extractedTenant.name
+                                };
+                                const { error: tenantErr } = await supabaseClient.from('tenants').insert([tenantInsertData]);
+                                if (!tenantErr) {
+                                    tenantAddMsg = '\\n[임차인: ' + result.extractedTenant.name + '(' + result.extractedTenant.room + ') 자동 등록됨]';
+                                    if (typeof activeTenantsData === 'undefined') window.activeTenantsData = [];
+                                    activeTenantsData.push({ address: bAddr, room: result.extractedTenant.room, tenantName: result.extractedTenant.name });
+                                }
                             }
                             
+                            // 계약서 세부 정보 추출 시 DB 등록 처리
+                            if (result.extractedContract) {
+                                const contractInsertData = {
+                                    building_id: targetBuildingId,
+                                    owner_id: session.user.id,
+                                    deposit: result.extractedContract.deposit,
+                                    rent: result.extractedContract.rent,
+                                    detailed_address: result.extractedContract.detailed_address,
+                                    lease_period: result.extractedContract.lease_period,
+                                    realtor_address: result.extractedContract.realtor_address,
+                                    realtor_name: result.extractedContract.realtor_name,
+                                    realtor_representative: result.extractedContract.realtor_representative,
+                                    realtor_phone: result.extractedContract.realtor_phone,
+                                    realtor_registration_no: result.extractedContract.realtor_registration_no,
+                                    contract_image_url: preprocessedBase64
+                                };
+                                const { error: contractErr } = await supabaseClient.from('contracts').insert([contractInsertData]);
+                                if (contractErr) {
+                                    console.error("contracts insert error:", contractErr);
+                                    alert('계약서 정보 저장 중 오류가 발생했습니다: ' + contractErr.message);
+                                } else {
+                                    console.log("계약서 정보 저장 완료:", contractInsertData);
+                                }
+                            }
+
                             document.getElementById('loading-view').classList.add('hidden');
-                            showModalAlert('계약서 명의 및 주소 인증이 성공적으로 완료되었습니다.\\n[등록/인증건물: ' + bName + ']\\n\\n15개 항목 AI 자동 추출을 시작합니다.');
-                            
-                            // 15개 항목 확인 UI 모달(뷰) 열기
-                            showView('ocr-extraction-view');
-                            
-                            // 자동 추출 실행
-                            if (typeof executeGeminiExtraction === 'function') {
-                                setTimeout(executeGeminiExtraction, 500); // UI 안정화 후 자동 실행
-                            } else {
-                                console.error('executeGeminiExtraction 함수를 찾을 수 없습니다.');
-                            }
                             document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
 
                             markUserVerified();
@@ -3118,151 +3096,6 @@ const htmlTemplate = `
             loadAdminBuildings();
         }
 
-        async function executeGeminiExtraction() {
-            const previewImage = document.getElementById('ocr-preview-img');
-            if (!previewImage || !previewImage.src || previewImage.src === '') {
-                showModalAlert('분석할 계약서 이미지가 없습니다.');
-                return;
-            }
-            
-            document.getElementById('loading-view').querySelector('h3').innerText = 'AI 모델을 통해 15개 항목을 추출 중입니다...';
-            document.getElementById('loading-view').classList.remove('hidden');
-            
-            try {
-                const response = await fetch('/api/gemini-extract', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        imageBase64: previewImage.src
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (!response.ok || !result.success) {
-                    throw new Error(result.error || 'AI 데이터 추출에 실패했습니다.');
-                }
-                
-                const data = result.data;
-                const fields = [
-                    'ocr_room_number', 'ocr_area', 'ocr_deposit', 'ocr_monthly_rent', 'ocr_maintenance_fee', 'ocr_cleaning_fee',
-                    'ocr_contract_date', 'ocr_lease_period', 'ocr_tenant_name', 'ocr_tenant_phone', 'ocr_broker_address',
-                    'ocr_broker_agency_name', 'ocr_broker_representative', 'ocr_broker_registration_no', 'ocr_broker_phone'
-                ];
-                
-                fields.forEach(fieldId => {
-                    const el = document.getElementById(fieldId);
-                    if (el && data[fieldId] !== undefined) {
-                        el.value = data[fieldId];
-                        // 시각적 피드백 효과
-                        const originalBg = el.style.backgroundColor;
-                        el.style.transition = 'background-color 0.5s';
-                        el.style.backgroundColor = '#e6fffa';
-                        setTimeout(() => {
-                            el.style.backgroundColor = originalBg;
-                        }, 1000);
-                    }
-                });
-                
-            } catch (err) {
-                showModalAlert('오류 발생: ' + err.message);
-            } finally {
-                document.getElementById('loading-view').classList.add('hidden');
-            }
-        }
-
-        async function submitExtractedContract(event) {
-            event.preventDefault();
-            const sessionData = await supabaseClient.auth.getSession();
-            const session = sessionData?.data?.session;
-            if (!session) {
-                showModalAlert('로그인이 필요합니다.');
-                return;
-            }
-
-            const buildingId = window.ocrTargetBuildingId;
-            if (!buildingId) {
-                showModalAlert('선택된 건물이 없습니다.');
-                return;
-            }
-
-            // Get all input values
-            const inputs = document.querySelectorAll('#ocr-fields-container input');
-            const contractData = {};
-            inputs.forEach(input => {
-                contractData[input.id] = input.value;
-            });
-
-            document.getElementById('loading-view').querySelector('h3').innerText = '데이터베이스에 저장 중입니다...';
-            document.getElementById('loading-view').classList.remove('hidden');
-
-            try {
-                // Insert Tenant
-                const { error: tError } = await supabaseClient
-                    .from('tenants')
-                    .insert([{
-                        building_id: buildingId,
-                        owner_id: session.user.id,
-                        address: '',
-                        room: contractData['ocr_room_number'],
-                        tenant_name: contractData['ocr_tenant_name']
-                    }]);
-
-                if (tError) {
-                    throw new Error('임차인 정보 저장 실패: ' + tError.message);
-                }
-
-                // Insert Contract
-                const { error: cError } = await supabaseClient
-                    .from('contracts')
-                    .insert([{
-                        building_id: buildingId,
-                        owner_id: session.user.id,
-                        status: 'matched',
-                        room_number: contractData['ocr_room_number'],
-                        area: contractData['ocr_area'],
-                        deposit: contractData['ocr_deposit'] ? parseInt(contractData['ocr_deposit']) : 0,
-                        monthly_rent: contractData['ocr_monthly_rent'] ? parseInt(contractData['ocr_monthly_rent']) : 0,
-                        maintenance_fee: contractData['ocr_maintenance_fee'] ? parseInt(contractData['ocr_maintenance_fee']) : 0,
-                        cleaning_fee: contractData['ocr_cleaning_fee'] ? parseInt(contractData['ocr_cleaning_fee']) : 0,
-                        contract_date: contractData['ocr_contract_date'],
-                        lease_period: contractData['ocr_lease_period'],
-                        tenant_name: contractData['ocr_tenant_name'],
-                        tenant_phone: contractData['ocr_tenant_phone'],
-                        broker_address: contractData['ocr_broker_address'],
-                        broker_agency_name: contractData['ocr_broker_agency_name'],
-                        broker_rep_name: contractData['ocr_broker_representative'],
-                        broker_reg_number: contractData['ocr_broker_registration_no'],
-                        broker_phone: contractData['ocr_broker_phone']
-                    }]);
-
-                if (cError) {
-                    throw new Error('계약서 세부정보 저장 실패: ' + cError.message);
-                }
-
-                document.getElementById('loading-view').classList.add('hidden');
-                showView('owner-app');
-                showModalAlert('AI 계약서 추출 정보가 성공적으로 저장되었습니다!');
-                
-                // Refresh list if possible
-                if (typeof renderOwnerBuildings === 'function') {
-                    renderOwnerBuildings();
-                }
-
-            } catch (err) {
-                document.getElementById('loading-view').classList.add('hidden');
-                showModalAlert('데이터베이스 저장 중 오류가 발생했습니다: ' + err.message);
-            }
-        }
-
-        function selectDateFromCalendar(dateStr) {
-            if (calendarTargetId) {
-                document.getElementById(calendarTargetId).value = dateStr;
-                filterAdminUsers();
-            }
-            closeCalendarModal();
-        }
-
         async function deleteAdminBuilding(id) {
             if (!confirm('정말로 이 건물을 시스템에서 강제 삭제하시겠습니까? 연관된 모든 데이터가 삭제됩니다.')) return;
             
@@ -3701,51 +3534,6 @@ const server = http.createServer(async (req, res) => {
         console.error('[OCR 처리 중 에러 발생]', err);
         res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: 'OCR 이미지 처리 중 오류가 발생했습니다.' }));
-      }
-    });
-  } else if (req.method === 'POST' && parsedUrl.pathname === '/api/gemini-extract') {
-    let body = '';
-    req.on('data', chunk => { body += chunk.toString(); });
-    req.on('end', async () => {
-      try {
-        const data = JSON.parse(body);
-        const imageBase64 = data.imageBase64;
-        if (!imageBase64) {
-            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-            return res.end(JSON.stringify({ success: false, error: '계약서 이미지가 누락되었습니다.' }));
-        }
-
-        console.log('[Gemini API 호출 시뮬레이션 시작...]');
-        // AI 모델 시뮬레이션 딜레이 1.5초
-        setTimeout(() => {
-          const result = {
-            success: true,
-            data: {
-              ocr_room_number: "302호",
-              ocr_area: "24.5",
-              ocr_deposit: "10000000",
-              ocr_monthly_rent: "550000",
-              ocr_maintenance_fee: "70000",
-              ocr_cleaning_fee: "0",
-              ocr_contract_date: "2026-06-16",
-              ocr_lease_period: "2026-06-16 ~ 2028-06-15",
-              ocr_tenant_name: "홍길동",
-              ocr_tenant_phone: "010-1234-5678",
-              ocr_broker_address: "서울특별시 마포구 백범로 123",
-              ocr_broker_agency_name: "대박공인중개사사무소",
-              ocr_broker_representative: "김대박",
-              ocr_broker_registration_no: "11440-2015-00123",
-              ocr_broker_phone: "02-987-6543"
-            }
-          };
-          console.log('[Gemini API 호출 성공: 15개 항목 추출 완료]');
-          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify(result));
-        }, 1500);
-      } catch (err) {
-        console.error('[Gemini 추출 에러]', err);
-        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: false, error: 'AI 데이터 추출 중 오류가 발생했습니다.' }));
       }
     });
   } else {
