@@ -1227,10 +1227,92 @@ const htmlTemplate = `
         <div class="main-container">
             <div class="card">
                 <div class="card-title"><i class="fa-solid fa-chart-pie"></i> 관리자 대시보드</div>
-                <div style="padding: 40px 20px; text-align: center; color: #718096;">
-                    <i class="fa-solid fa-layer-group" style="font-size: 48px; color: #cbd5e0; margin-bottom: 20px;"></i>
-                    <h3 style="margin-bottom: 10px; color: #4a5568;">환영합니다, 관리자님!</h3>
-                    <p style="margin: 0; line-height: 1.6;">우측 상단의 메뉴를 클릭하여 <strong>회원 관리</strong> 또는 <strong>시스템 설정</strong> 메뉴로 이동하실 수 있습니다.</p>
+                <!-- 통계 대시보드 위젯 -->
+                <div id="admin-dashboard-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 15px; text-align: left;">
+                    
+                    <!-- 카드 1: 총 회원 수 -->
+                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: var(--card-shadow); border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; border-left: 4px solid var(--primary-deep-navy);">
+                        <div>
+                            <h4 style="margin: 0; font-size: 13px; font-weight: 600; color: #718096; margin-bottom: 5px;">총 회원 수</h4>
+                            <div id="stat-total-users" style="font-size: 26px; font-weight: 700; color: var(--primary-deep-navy);">0<span style="font-size: 14px; font-weight: normal; color: #a0aec0; margin-left: 4px;">명</span></div>
+                        </div>
+                        <div style="width: 48px; height: 48px; border-radius: 50%; background: #ebf8ff; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-users" style="font-size: 20px; color: var(--primary-light-blue);"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- 카드 2: 임대인 -->
+                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: var(--card-shadow); border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; border-left: 4px solid var(--primary-light-blue);">
+                        <div>
+                            <h4 style="margin: 0; font-size: 13px; font-weight: 600; color: #718096; margin-bottom: 5px;">임대인 (건물주)</h4>
+                            <div id="stat-owner-users" style="font-size: 26px; font-weight: 700; color: var(--primary-deep-navy);">0<span style="font-size: 14px; font-weight: normal; color: #a0aec0; margin-left: 4px;">명</span></div>
+                        </div>
+                        <div style="width: 48px; height: 48px; border-radius: 50%; background: #e6fffa; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-user-tie" style="font-size: 20px; color: #319795;"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- 카드 3: 임차인 -->
+                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: var(--card-shadow); border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; border-left: 4px solid #48bb78;">
+                        <div>
+                            <h4 style="margin: 0; font-size: 13px; font-weight: 600; color: #718096; margin-bottom: 5px;">임차인 (세입자)</h4>
+                            <div id="stat-tenant-users" style="font-size: 26px; font-weight: 700; color: var(--primary-deep-navy);">0<span style="font-size: 14px; font-weight: normal; color: #a0aec0; margin-left: 4px;">명</span></div>
+                        </div>
+                        <div style="width: 48px; height: 48px; border-radius: 50%; background: #f0fff4; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-house-user" style="font-size: 20px; color: #48bb78;"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- 카드 4: 등록 건물 -->
+                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: var(--card-shadow); border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; border-left: 4px solid var(--point-orange);">
+                        <div>
+                            <h4 style="margin: 0; font-size: 13px; font-weight: 600; color: #718096; margin-bottom: 5px;">총 등록 건물</h4>
+                            <div id="stat-total-buildings" style="font-size: 26px; font-weight: 700; color: var(--primary-deep-navy);">0<span style="font-size: 14px; font-weight: normal; color: #a0aec0; margin-left: 4px;">개</span></div>
+                        </div>
+                        <div style="width: 48px; height: 48px; border-radius: 50%; background: #fffaf0; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-building" style="font-size: 20px; color: var(--point-orange);"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 상세 통계 영역 (가입 일자별 & 지역별) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                <!-- 가입 일자별 회원 통계 -->
+                <div class="card" style="margin: 0; border-top: 4px solid var(--primary-deep-navy);">
+                    <div class="card-title"><i class="fa-solid fa-calendar-days"></i> 가입 일자별 회원 현황</div>
+                    <div style="overflow-x: auto; max-height: 300px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 1;">
+                                <tr style="border-bottom: 2px solid #e2e8f0;">
+                                    <th style="padding: 10px 8px; text-align: left; color: #4a5568;">가입 일자</th>
+                                    <th style="padding: 10px 8px; text-align: center; color: #4a5568;">가입자 수</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stat-signup-date-list">
+                                <tr><td colspan="2" style="text-align: center; padding: 20px; color: #a0aec0;">데이터를 불러오는 중입니다...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 지역별 건물 및 임대인 통계 -->
+                <div class="card" style="margin: 0; border-top: 4px solid var(--primary-light-blue);">
+                    <div class="card-title"><i class="fa-solid fa-map-location-dot"></i> 지역별 통계 (시/군/구)</div>
+                    <div style="overflow-x: auto; max-height: 300px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 1;">
+                                <tr style="border-bottom: 2px solid #e2e8f0;">
+                                    <th style="padding: 10px 8px; text-align: left; color: #4a5568;">지역</th>
+                                    <th style="padding: 10px 8px; text-align: center; color: #4a5568;">등록 건물 수</th>
+                                    <th style="padding: 10px 8px; text-align: center; color: #4a5568;">소유 임대인 수</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stat-region-list">
+                                <tr><td colspan="3" style="text-align: center; padding: 20px; color: #a0aec0;">데이터를 불러오는 중입니다...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -1263,22 +1345,44 @@ const htmlTemplate = `
         </div>
     </div>
 
-    <!-- 회원 수정 모달 -->
-    <div id="admin-edit-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
-        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 350px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <h3 style="margin-bottom: 15px; font-size: 16px; color: var(--primary-deep-navy); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">회원 정보 수정</h3>
-            <input type="hidden" id="admin-edit-id">
-            <div class="form-group" style="margin-bottom: 10px;">
-                <label style="font-size: 13px;">이름</label>
-                <input type="text" id="admin-edit-name" class="form-control">
+    <!-- 회원/건물 통합 수정 페이지 -->
+    <div id="admin-user-edit-app" class="hidden">
+        <nav class="navbar" style="background: #2d3748;">
+            <div class="navbar-brand" style="color: white; cursor: pointer;" onclick="showView('admin-users-app')">
+                <i class="fa-solid fa-user-shield"></i>
+                <span style="margin-left: 5px;">모두의 방 <span style="font-size:12px; color:#a0aec0;">[관리자 전용 - 회원 통합 수정]</span></span>
             </div>
-            <div class="form-group" style="margin-bottom: 20px;">
-                <label style="font-size: 13px;">연락처</label>
-                <input type="text" id="admin-edit-phone" class="form-control">
+            <div class="user-profile">
+                <button class="btn-logout" style="border:none; font-weight: 500; font-size: 14px; cursor: pointer; color: white; background: transparent;" onclick="showView('admin-users-app')">
+                    <i class="fa-solid fa-xmark"></i> 닫기
+                </button>
             </div>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn btn-orange" onclick="saveAdminUserEdit()" style="flex: 1;">저장</button>
-                <button class="btn" onclick="closeAdminEditModal()" style="flex: 1; background: #e2e8f0; color: #4a5568;">취소</button>
+        </nav>
+        <div class="main-container">
+            <input type="hidden" id="admin-edit-page-id">
+            
+            <div class="card" style="border-top: 4px solid var(--primary-deep-navy); margin-bottom: 20px;">
+                <div class="card-title"><i class="fa-solid fa-user-pen"></i> 회원 정보</div>
+                <div class="form-group">
+                    <label>이름</label>
+                    <input type="text" id="admin-edit-page-name" class="form-control">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>연락처</label>
+                    <input type="text" id="admin-edit-page-phone" class="form-control">
+                </div>
+            </div>
+
+            <div id="admin-edit-page-buildings-container" class="hidden">
+                <h3 style="font-size: 15px; color: var(--primary-deep-navy); margin: 25px 0 10px 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;"><i class="fa-solid fa-building"></i> 소유 건물 관리</h3>
+                <div id="admin-edit-page-buildings-list">
+                    <!-- 건물 폼들이 동적으로 추가됨 -->
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 30px;">
+                <button class="btn btn-orange" onclick="saveAdminUserEditData()" style="flex: 1; padding: 15px; font-size: 16px;"><i class="fa-solid fa-floppy-disk"></i> 변경사항 저장</button>
+                <button class="btn" onclick="showView('admin-users-app')" style="flex: 1; background: #e2e8f0; color: #4a5568; padding: 15px; font-size: 16px;">취소 및 돌아가기</button>
             </div>
         </div>
     </div>
@@ -1688,6 +1792,7 @@ const htmlTemplate = `
             if(document.getElementById('add-building-view')) document.getElementById('add-building-view').classList.add('hidden');
             if(document.getElementById('building-management-page')) document.getElementById('building-management-page').classList.add('hidden');
             if(document.getElementById('ocr-extraction-view')) document.getElementById('ocr-extraction-view').classList.add('hidden');
+            if(document.getElementById('admin-user-edit-app')) document.getElementById('admin-user-edit-app').classList.add('hidden');
 
             if (viewName === 'login') {
                 document.getElementById('login-view').classList.remove('hidden');
@@ -1697,10 +1802,17 @@ const htmlTemplate = `
                 document.getElementById('main-app').classList.remove('hidden');
             } else if (viewName === 'admin-users-app') {
                 document.getElementById('admin-users-app').classList.remove('hidden');
+            } else if (viewName === 'admin-user-edit-app') {
+                document.getElementById('admin-user-edit-app').classList.remove('hidden');
             } else if (viewName === 'admin-settings-app') {
                 document.getElementById('admin-settings-app').classList.remove('hidden');
             } else if (viewName === 'admin-app') {
-                if(document.getElementById('admin-app')) document.getElementById('admin-app').classList.remove('hidden');
+                if(document.getElementById('admin-app')) {
+                    document.getElementById('admin-app').classList.remove('hidden');
+                    if (typeof loadAdminDashboardStats === 'function') {
+                        loadAdminDashboardStats();
+                    }
+                }
             } else if (viewName === 'map-app') {
                 document.getElementById('map-app').classList.remove('hidden');
             } else if (viewName === 'story-detail-app') {
@@ -3105,6 +3217,23 @@ const htmlTemplate = `
                 const verifyBtnClass = u.is_verified ? 'btn-orange' : 'btn';
                 const verifyBtnText = u.is_verified ? '인증됨' : '미인증';
                 
+                let actionHtml = '';
+                if (u.role === 'admin') {
+                    actionHtml = \`<button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="openUserEditPage('\${u.id}')">수정</button>\`;
+                } else if (u.role === 'owner') {
+                    actionHtml = \`
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568; margin-right: 4px;" onclick="toggleOwnerBuildings('\${u.id}', this)"><i class="fa-solid fa-building"></i> 건물</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="openUserEditPage('\${u.id}')">수정</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: none; border: none; color: #e53e3e; cursor: pointer; font-weight: bold;" onclick="deleteAdminUser('\${u.id}')">삭제</button>
+                    \`;
+                } else {
+                    actionHtml = \`
+                        <button class="\${verifyBtnClass}" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="toggleVerification('\${u.id}', \${u.is_verified})">\${verifyBtnText}</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="openUserEditPage('\${u.id}')">수정</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: none; border: none; color: #e53e3e; cursor: pointer; font-weight: bold;" onclick="deleteAdminUser('\${u.id}')">삭제</button>
+                    \`;
+                }
+                
                 return \`
                     <tr style="border-bottom: 1px solid #e2e8f0;">
                         <td style="padding: 12px 8px;">\${u.name}</td>
@@ -3113,13 +3242,67 @@ const htmlTemplate = `
                         <td style="padding: 12px 8px;">\${roleBadge}</td>
                         <td style="padding: 12px 8px; text-align: center;">\${dateStr}</td>
                         <td style="padding: 12px 8px; text-align: center;">
-                            <button class="\${verifyBtnClass}" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="toggleVerification('\${u.id}', \${u.is_verified})">\${verifyBtnText}</button>
-                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="openAdminEditModal('\${u.id}', '\${u.name}', '\${u.phone || ''}')">수정</button>
-                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: none; border: none; color: #e53e3e; cursor: pointer; font-weight: bold;" onclick="deleteAdminUser('\${u.id}')">삭제</button>
+                            \${actionHtml}
                         </td>
                     </tr>
                 \`;
             }).join('');
+        }
+
+        async function toggleOwnerBuildings(ownerId, btnEl) {
+            const tr = btnEl.closest('tr');
+            const nextTr = tr.nextElementSibling;
+            
+            // 이미 확장되어 있으면 닫기
+            if (nextTr && nextTr.id === 'buildings-row-' + ownerId) {
+                nextTr.remove();
+                return;
+            }
+            
+            // 기존에 열려있는 다른 건물 목록들 닫기 (원치 않으면 이 블록 삭제)
+            // document.querySelectorAll('tr[id^="buildings-row-"]').forEach(el => el.remove());
+
+            // 로딩 표시용 행 추가
+            const loadingTr = document.createElement('tr');
+            loadingTr.id = 'buildings-row-' + ownerId;
+            loadingTr.innerHTML = '<td colspan="6" style="padding: 15px; background: #f8fafc; text-align: center; color: #718096; font-size: 12px;"><i class="fa-solid fa-spinner fa-spin"></i> 건물 정보를 불러오는 중...</td>';
+            tr.parentNode.insertBefore(loadingTr, nextTr);
+
+            try {
+                const { data: bldgs, error } = await supabaseClient
+                    .from('buildings')
+                    .select('*')
+                    .eq('owner_id', ownerId);
+                    
+                if (error) throw error;
+                
+                if (!bldgs || bldgs.length === 0) {
+                    loadingTr.innerHTML = '<td colspan="6" style="padding: 15px; background: #f8fafc; text-align: center; color: #718096; font-size: 13px;">등록된 건물이 없습니다.</td>';
+                    return;
+                }
+                
+                let bldgHtml = '<div style="padding: 10px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">';
+                bldgHtml += '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+                bldgHtml += '<thead style="background: #edf2f7; color: #4a5568;"><tr style="border-bottom: 2px solid #e2e8f0;"><th style="padding: 8px; text-align: left;">건물명</th><th style="padding: 8px; text-align: left;">주소</th><th style="padding: 8px; text-align: center;">층수</th><th style="padding: 8px; text-align: center;">등록일</th><th style="padding: 8px; text-align: center;">인증 상태</th><th style="padding: 8px; text-align: center;">관리</th></tr></thead>';
+                bldgHtml += '<tbody>';
+                bldgs.forEach(b => {
+                    const bDate = new Date(b.created_at).toLocaleDateString();
+                    const verifyStatus = b.is_verified ? '<span style="color: #3182ce; font-weight: 600;">2차 인증 완료</span>' : \`<button class="btn" style="padding: 2px 6px; font-size: 10px; background: white; border: 1px solid #cbd5e0; color: #4a5568; cursor: pointer;" onclick="toggleBuildingVerify('\${b.id}', false)">미인증 버튼</button>\`;
+                    bldgHtml += \`<tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 8px; font-weight: 500;">\${b.name || '-'}</td>
+                        <td style="padding: 8px;">\${b.address || '-'}</td>
+                        <td style="padding: 8px; text-align: center;">\${b.floors ? b.floors + '층' : '-'}</td>
+                        <td style="padding: 8px; text-align: center;">\${bDate}</td>
+                        <td style="padding: 8px; text-align: center;">\${verifyStatus}</td>
+                        <td style="padding: 8px; text-align: center;"><button class="btn" style="padding: 2px 6px; font-size: 10px; background: white; border: 1px solid #cbd5e0; color: #4a5568; cursor: pointer;" onclick="openUserEditPage('\${ownerId}')">수정</button></td>
+                    </tr>\`;
+                });
+                bldgHtml += '</tbody></table></div>';
+                
+                loadingTr.innerHTML = '<td colspan="6" style="padding: 15px 20px; background: #f8fafc; border-bottom: 2px solid #cbd5e0;">' + bldgHtml + '</td>';
+            } catch (err) {
+                loadingTr.innerHTML = '<td colspan="6" style="padding: 15px; background: #fff5f5; text-align: center; color: #e53e3e; font-size: 13px;">건물 정보를 불러오지 못했습니다.</td>';
+            }
         }
 
         async function toggleVerification(id, currentStatus) {
@@ -3134,29 +3317,84 @@ const htmlTemplate = `
             loadAdminUsers();
         }
 
-        function openAdminEditModal(id, name, phone) {
-            document.getElementById('admin-edit-id').value = id;
-            document.getElementById('admin-edit-name').value = name;
-            document.getElementById('admin-edit-phone').value = phone;
-            document.getElementById('admin-edit-modal').classList.remove('hidden');
+        async function openUserEditPage(id) {
+            document.getElementById('admin-edit-page-id').value = id;
+            document.getElementById('admin-edit-page-name').value = '불러오는 중...';
+            document.getElementById('admin-edit-page-phone').value = '불러오는 중...';
+            document.getElementById('admin-edit-page-buildings-container').classList.add('hidden');
+            document.getElementById('admin-edit-page-buildings-list').innerHTML = '';
+            showView('admin-user-edit-app');
+
+            try {
+                const { data: user, error } = await supabaseClient.from('profiles').select('*').eq('id', id).single();
+                if (error) throw error;
+                
+                document.getElementById('admin-edit-page-name').value = user.name || '';
+                document.getElementById('admin-edit-page-phone').value = user.phone || '';
+
+                if (user.role === 'owner') {
+                    document.getElementById('admin-edit-page-buildings-container').classList.remove('hidden');
+                    const { data: bldgs } = await supabaseClient.from('buildings').select('*').eq('owner_id', id);
+                    if (bldgs && bldgs.length > 0) {
+                        let bHtml = '';
+                        bldgs.forEach(b => {
+                            bHtml += \`
+                                <div class="card" style="margin-bottom: 15px; border: 1px solid #e2e8f0; box-shadow: none;">
+                                    <input type="hidden" class="edit-building-id" value="\${b.id}">
+                                    <div class="form-group" style="margin-bottom: 10px;">
+                                        <label style="font-size: 13px;">건물명</label>
+                                        <input type="text" class="form-control edit-building-name" value="\${b.name || ''}">
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 10px;">
+                                        <label style="font-size: 13px;">주소</label>
+                                        <input type="text" class="form-control edit-building-address" value="\${b.address || ''}">
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label style="font-size: 13px;">층수</label>
+                                        <input type="number" class="form-control edit-building-floors" value="\${b.floors || ''}">
+                                    </div>
+                                </div>
+                            \`;
+                        });
+                        document.getElementById('admin-edit-page-buildings-list').innerHTML = bHtml;
+                    } else {
+                        document.getElementById('admin-edit-page-buildings-list').innerHTML = '<p style="font-size: 13px; color: #718096; padding: 10px;">등록된 건물이 없습니다.</p>';
+                    }
+                }
+            } catch (err) {
+                showModalAlert('정보를 불러오지 못했습니다: ' + err.message);
+            }
         }
 
-        function closeAdminEditModal() {
-            document.getElementById('admin-edit-modal').classList.add('hidden');
-        }
+        async function saveAdminUserEditData() {
+            const id = document.getElementById('admin-edit-page-id').value;
+            const name = document.getElementById('admin-edit-page-name').value;
+            const phone = document.getElementById('admin-edit-page-phone').value;
 
-        async function saveAdminUserEdit() {
-            const id = document.getElementById('admin-edit-id').value;
-            const name = document.getElementById('admin-edit-name').value;
-            const phone = document.getElementById('admin-edit-phone').value;
-
+            // Update user profile
             const { error } = await supabaseClient.from('profiles').update({ name, phone }).eq('id', id);
             if (error) {
-                showModalAlert('수정 실패: ' + error.message);
+                showModalAlert('회원 수정 실패: ' + error.message);
                 return;
             }
-            showModalAlert('수정되었습니다.');
-            closeAdminEditModal();
+
+            // Update buildings if owner
+            const bldgCards = document.querySelectorAll('#admin-edit-page-buildings-list .card');
+            for (let card of bldgCards) {
+                const bId = card.querySelector('.edit-building-id').value;
+                const bName = card.querySelector('.edit-building-name').value;
+                const bAddress = card.querySelector('.edit-building-address').value;
+                const bFloors = card.querySelector('.edit-building-floors').value;
+                
+                await supabaseClient.from('buildings').update({ 
+                    name: bName, 
+                    address: bAddress, 
+                    floors: bFloors ? parseInt(bFloors) : null 
+                }).eq('id', bId);
+            }
+
+            showModalAlert('변경사항이 성공적으로 저장되었습니다.');
+            showView('admin-users-app');
             loadAdminUsers();
         }
 
@@ -3183,6 +3421,85 @@ const htmlTemplate = `
                 loadAdminUsers();
             } catch (err) {
                 showModalAlert('삭제 중 오류가 발생했습니다: ' + err.message);
+            }
+        }
+
+        async function loadAdminDashboardStats() {
+            if (!supabaseClient) return;
+            try {
+                // 총 회원 수, 임대인, 임차인 및 가입 일자별 회원 수
+                const { data: profiles, error: profError } = await supabaseClient.from('profiles').select('role, created_at');
+                if (!profError && profiles) {
+                    const totalUsers = profiles.length;
+                    const ownerCount = profiles.filter(p => p.role === 'owner').length;
+                    const tenantCount = profiles.filter(p => p.role === 'tenant').length;
+                    const elTotal = document.getElementById('stat-total-users');
+                    const elOwner = document.getElementById('stat-owner-users');
+                    const elTenant = document.getElementById('stat-tenant-users');
+                    if(elTotal) elTotal.innerHTML = totalUsers + ' <span style="font-size: 14px; font-weight: normal; color: #a0aec0; margin-left: 4px;">명</span>';
+                    if(elOwner) elOwner.innerHTML = ownerCount + ' <span style="font-size: 14px; font-weight: normal; color: #a0aec0; margin-left: 4px;">명</span>';
+                    if(elTenant) elTenant.innerHTML = tenantCount + ' <span style="font-size: 14px; font-weight: normal; color: #a0aec0; margin-left: 4px;">명</span>';
+                
+                    // 가입 일자별 그룹핑
+                    const dateGroups = {};
+                    profiles.forEach(p => {
+                        const d = p.created_at ? new Date(p.created_at).toLocaleDateString() : '알 수 없음';
+                        dateGroups[d] = (dateGroups[d] || 0) + 1;
+                    });
+                    
+                    const dateListEl = document.getElementById('stat-signup-date-list');
+                    if(dateListEl) {
+                        const sortedDates = Object.keys(dateGroups).sort((a,b) => new Date(b) - new Date(a));
+                        if(sortedDates.length === 0) {
+                            dateListEl.innerHTML = '<tr><td colspan="2" style="text-align: center; padding: 20px; color: #a0aec0;">가입 내역이 없습니다.</td></tr>';
+                        } else {
+                            dateListEl.innerHTML = sortedDates.map(date => {
+                                return '<tr><td style="padding: 10px 8px; border-bottom: 1px solid #edf2f7;">' + date + '</td><td style="padding: 10px 8px; text-align: center; border-bottom: 1px solid #edf2f7; font-weight: 500;">' + dateGroups[date] + ' 명</td></tr>';
+                            }).join('');
+                        }
+                    }
+                }
+
+                // 총 등록 건물 수 및 지역별 통계
+                const { data: bldgs, error: bldgError } = await supabaseClient.from('buildings').select('address, owner_id');
+                if (!bldgError && bldgs) {
+                    const elBldg = document.getElementById('stat-total-buildings');
+                    if(elBldg) elBldg.innerHTML = (bldgs.length || 0) + ' <span style="font-size: 14px; font-weight: normal; color: #a0aec0; margin-left: 4px;">개</span>';
+                    
+                    // 지역별 그룹핑
+                    const regionMap = {};
+                    bldgs.forEach(b => {
+                        let region = '지역 미상';
+                        if (b.address) {
+                            const parts = b.address.split(' ');
+                            if (parts.length >= 2) {
+                                region = parts[0] + ' ' + parts[1]; // 예: 서울특별시 관악구
+                            } else {
+                                region = b.address;
+                            }
+                        }
+                        if (!regionMap[region]) {
+                            regionMap[region] = { bldgCount: 0, owners: new Set() };
+                        }
+                        regionMap[region].bldgCount += 1;
+                        if (b.owner_id) regionMap[region].owners.add(b.owner_id);
+                    });
+
+                    const regionListEl = document.getElementById('stat-region-list');
+                    if (regionListEl) {
+                        const regions = Object.keys(regionMap).sort((a,b) => regionMap[b].bldgCount - regionMap[a].bldgCount);
+                        if (regions.length === 0) {
+                            regionListEl.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: #a0aec0;">등록된 건물이 없습니다.</td></tr>';
+                        } else {
+                            regionListEl.innerHTML = regions.map(reg => {
+                                const data = regionMap[reg];
+                                return '<tr><td style="padding: 10px 8px; border-bottom: 1px solid #edf2f7;">' + reg + '</td><td style="padding: 10px 8px; text-align: center; border-bottom: 1px solid #edf2f7; font-weight: 500;">' + data.bldgCount + ' 개</td><td style="padding: 10px 8px; text-align: center; border-bottom: 1px solid #edf2f7; font-weight: 500;">' + data.owners.size + ' 명</td></tr>';
+                            }).join('');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to load admin stats", err);
             }
         }
 
