@@ -1006,7 +1006,7 @@
     <!-- 어드민 페이지 -->
     <div id="admin-app" class="hidden">
         <nav class="navbar" style="background: #2d3748;">
-            <div class="navbar-brand" style="color: white;">
+            <div class="navbar-brand" style="color: white; cursor: pointer;" onclick="showView('admin-app')">
                 <i class="fa-solid fa-user-shield"></i>
                 <span>모두의 방 <span style="font-size:12px; color:#a0aec0;">[관리자 전용]</span></span>
             </div>
@@ -1060,32 +1060,7 @@
                 </div>
             </div>
 
-            <!-- 등록된 건물 관리 영역 추가 -->
-            <div class="card" style="margin-top: 20px; border-top: 4px solid var(--point-orange);">
-                <div class="card-title"><i class="fa-solid fa-building-circle-check"></i> 등록된 건물 관리 (옵션 B)</div>
-                <p style="font-size: 13px; color: #718096; margin-bottom: 20px;">
-                    개별 서류 인증을 거쳐 시스템에 등록된 전체 건물 목록입니다. 허위 매물이 의심되거나 문제가 있는 건물은 강제 삭제할 수 있습니다.
-                </p>
-                <div style="display: flex; align-items: flex-end; margin-bottom: 20px;">
-                    <button class="btn btn-orange" onclick="loadAdminBuildings()"><i class="fa-solid fa-rotate-right"></i> 새로고침</button>
-                </div>
-                <div style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                        <thead>
-                            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                                <th style="padding: 12px 8px; text-align: left; color: #4a5568;">건물명</th>
-                                <th style="padding: 12px 8px; text-align: left; color: #4a5568;">주소</th>
-                                <th style="padding: 12px 8px; text-align: center; color: #4a5568;">등록일</th>
-                                <th style="padding: 12px 8px; text-align: center; color: #4a5568;">소유주 확인</th>
-                                <th style="padding: 12px 8px; text-align: center; color: #4a5568;">관리</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-buildings-list">
-                            <!-- JS로 렌더링 -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <!-- 대시보드 내 건물 관리 리스트 영역 (제거됨) -->
         </div>
     </div>
 
@@ -1226,13 +1201,13 @@
             const today = new Date();
             const initDateStr = today.getFullYear() + '.' + String(today.getMonth() + 1).padStart(2, '0') + '.' + String(today.getDate()).padStart(2, '0');
             
-            const prevWeek = new Date(today);
-            prevWeek.setDate(prevWeek.getDate() - 7);
-            const prevWeekStr = prevWeek.getFullYear() + '.' + String(prevWeek.getMonth() + 1).padStart(2, '0') + '.' + String(prevWeek.getDate()).padStart(2, '0');
+            const prevMonth = new Date(today);
+            prevMonth.setMonth(prevMonth.getMonth() - 1);
+            const prevMonthStr = prevMonth.getFullYear() + '.' + String(prevMonth.getMonth() + 1).padStart(2, '0') + '.' + String(prevMonth.getDate()).padStart(2, '0');
             
             const startInput = document.getElementById('admin-filter-start');
             const endInput = document.getElementById('admin-filter-end');
-            if (startInput) startInput.value = prevWeekStr;
+            if (startInput) startInput.value = prevMonthStr;
             if (endInput) endInput.value = initDateStr;
 
             const todayDisplay = document.getElementById('calendar-today-display');
@@ -2894,6 +2869,23 @@
                 const verifyBtnClass = u.is_verified ? 'btn-orange' : 'btn';
                 const verifyBtnText = u.is_verified ? '인증됨' : '미인증';
                 
+                let actionHtml = '';
+                if (u.role === 'admin') {
+                    actionHtml = `<button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="openAdminEditModal('${u.id}', '${u.name}', '${u.phone || ''}')">수정</button>`;
+                } else if (u.role === 'owner') {
+                    actionHtml = `
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568; margin-right: 4px;" onclick="toggleOwnerBuildings('${u.id}', this)"><i class="fa-solid fa-building"></i> 건물</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="openAdminEditModal('${u.id}', '${u.name}', '${u.phone || ''}')">수정</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: none; border: none; color: #e53e3e; cursor: pointer; font-weight: bold;" onclick="deleteAdminUser('${u.id}')">삭제</button>
+                    `;
+                } else {
+                    actionHtml = `
+                        <button class="${verifyBtnClass}" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="toggleVerification('${u.id}', ${u.is_verified})">${verifyBtnText}</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="openAdminEditModal('${u.id}', '${u.name}', '${u.phone || ''}')">수정</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 11px; background: none; border: none; color: #e53e3e; cursor: pointer; font-weight: bold;" onclick="deleteAdminUser('${u.id}')">삭제</button>
+                    `;
+                }
+                
                 return `
                     <tr style="border-bottom: 1px solid #e2e8f0;">
                         <td style="padding: 12px 8px;">${u.name}</td>
@@ -2902,25 +2894,89 @@
                         <td style="padding: 12px 8px;">${roleBadge}</td>
                         <td style="padding: 12px 8px; text-align: center;">${dateStr}</td>
                         <td style="padding: 12px 8px; text-align: center;">
-                            <button class="${verifyBtnClass}" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="toggleVerification('${u.id}', ${u.is_verified})">${verifyBtnText}</button>
-                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="openAdminEditModal('${u.id}', '${u.name}', '${u.phone || ''}')">수정</button>
-                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: none; border: none; color: #e53e3e; cursor: pointer; font-weight: bold;" onclick="deleteAdminUser('${u.id}')">삭제</button>
+                            ${actionHtml}
                         </td>
                     </tr>
                 `;
             }).join('');
         }
 
-        async function toggleVerification(id, currentStatus) {
-            if (!supabaseClient) return;
-            if (!confirm(currentStatus ? '2차 인증을 취소하시겠습니까?' : '2차 인증을 수동으로 승인하시겠습니까?')) return;
+        async function toggleOwnerBuildings(ownerId, btnEl) {
+            const tr = btnEl.closest('tr');
+            const nextTr = tr.nextElementSibling;
             
-            const { error } = await supabaseClient.from('profiles').update({ is_verified: !currentStatus }).eq('id', id);
-            if (error) {
-                showModalAlert('인증 상태 변경 실패: ' + error.message);
+            // 이미 확장되어 있으면 닫기
+            if (nextTr && nextTr.id === 'buildings-row-' + ownerId) {
+                nextTr.remove();
                 return;
             }
-            loadAdminUsers();
+            
+            // 로딩 표시용 행 추가
+            const loadingTr = document.createElement('tr');
+            loadingTr.id = 'buildings-row-' + ownerId;
+            loadingTr.innerHTML = '<td colspan="6" style="padding: 15px; background: #f8fafc; text-align: center; color: #718096; font-size: 12px;"><i class="fa-solid fa-spinner fa-spin"></i> 건물 정보를 불러오는 중...</td>';
+            tr.parentNode.insertBefore(loadingTr, nextTr);
+
+            try {
+                const { data: bldgs, error } = await supabaseClient
+                    .from('buildings')
+                    .select('*')
+                    .eq('owner_id', ownerId);
+                    
+                if (error) throw error;
+                
+                if (!bldgs || bldgs.length === 0) {
+                    loadingTr.innerHTML = '<td colspan="6" style="padding: 15px; background: #f8fafc; text-align: center; color: #718096; font-size: 13px;">등록된 건물이 없습니다.</td>';
+                    return;
+                }
+                
+                let bldgHtml = '<div style="padding: 5px 10px 10px 40px;">';
+                bldgHtml += '<div style="margin-bottom: 10px; color: #4a5568; font-size: 13px; font-weight: bold;"><i class="fa-solid fa-turn-up fa-rotate-90" style="margin-right: 8px; color: #a0aec0;"></i>소유 건물 목록</div>';
+                bldgHtml += '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">';
+                bldgHtml += '<thead style="color: #4a5568;"><tr style="border-bottom: 2px solid #e2e8f0;">';
+                bldgHtml += '<th style="padding: 12px 8px; text-align: left; font-weight: 600;">건물명</th>';
+                bldgHtml += '<th style="padding: 12px 8px; text-align: left; font-weight: 600;">주소</th>';
+                bldgHtml += '<th style="padding: 12px 8px; text-align: center; font-weight: 600;">층수</th>';
+                bldgHtml += '<th style="padding: 12px 8px; text-align: center; font-weight: 600;">등록일</th>';
+                bldgHtml += '<th style="padding: 12px 8px; text-align: center; font-weight: 600;">인증 상태</th>';
+                bldgHtml += '<th style="padding: 12px 8px; text-align: center; font-weight: 600;">관리</th>';
+                bldgHtml += '</tr></thead><tbody>';
+                bldgs.forEach(b => {
+                    const bDate = new Date(b.created_at).toLocaleDateString();
+                    const verifyStatus = b.is_verified ? '<span style="color: #3182ce; font-weight: 600;">2차 인증 완료</span>' : `<span style="color: #dd6b20; font-weight: 600;">미인증</span>`;
+                    bldgHtml += `<tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 12px 8px;">${b.name || '-'}</td>
+                        <td style="padding: 12px 8px;">${b.address || '-'}</td>
+                        <td style="padding: 12px 8px; text-align: center;">${b.floors ? b.floors + '층' : '-'}</td>
+                        <td style="padding: 12px 8px; text-align: center;">${bDate}</td>
+                        <td style="padding: 12px 8px; text-align: center;">${verifyStatus}</td>
+                        <td style="padding: 12px 8px; text-align: center; display: flex; gap: 5px; justify-content: center;">
+                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; color: #4a5568; cursor: pointer;" onclick="openAdminEditModal('${ownerId}', '', '')">수정</button>
+                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: ${b.is_verified ? '#ed8936' : '#48bb78'}; border: none; color: white; cursor: pointer;" onclick="toggleBuildingVerify('${b.id}', ${b.is_verified})">${b.is_verified ? '인증취소' : '인증승인'}</button>
+                            <button class="btn" style="padding: 4px 8px; font-size: 11px; background: #e53e3e; border: none; color: white; cursor: pointer;" onclick="deleteAdminBuilding('${b.id}')">삭제</button>
+                        </td>
+                    </tr>`;
+                });
+                bldgHtml += '</tbody></table></div>';
+                
+                loadingTr.innerHTML = '<td colspan="6" style="padding: 10px 15px 20px 15px; background: #fafafa; border-bottom: 2px solid #cbd5e0;">' + bldgHtml + '</td>';
+            } catch (err) {
+                loadingTr.innerHTML = '<td colspan="6" style="padding: 15px; background: #fff5f5; text-align: center; color: #e53e3e; font-size: 13px;">건물 정보를 불러오지 못했습니다.</td>';
+            }
+        }
+
+        function toggleVerification(id, currentStatus) {
+            if (!supabaseClient) return;
+            showModalConfirm(currentStatus ? '2차 인증을 취소하시겠습니까?' : '2차 인증을 수동으로 승인하시겠습니까?', async (res) => {
+                if (!res) return;
+                
+                const { error } = await supabaseClient.from('profiles').update({ is_verified: !currentStatus }).eq('id', id);
+                if (error) {
+                    showModalAlert('인증 상태 변경 실패: ' + error.message);
+                    return;
+                }
+                loadAdminUsers();
+            });
         }
 
         function openAdminEditModal(id, name, phone) {
@@ -2949,30 +3005,32 @@
             loadAdminUsers();
         }
 
-        async function deleteAdminUser(id) {
-            if (!confirm('정말로 이 회원을 삭제(강제 탈퇴)하시겠습니까? 연관된 데이터도 모두 삭제됩니다.')) return;
-            
-            if (!supabaseClient) {
-                adminUsersData = adminUsersData.filter(u => u.id !== id);
-                filterAdminUsers();
-                showModalAlert('회원이 삭제되었습니다. (로컬)');
-                return;
-            }
-
-            try {
-                // 혹시 모를 외래 키 제약 조건을 피하기 위해 해당 회원의 건물 먼저 삭제 시도
-                await supabaseClient.from('buildings').delete().eq('owner_id', id);
+        function deleteAdminUser(id) {
+            showModalConfirm('정말로 이 회원을 삭제(강제 탈퇴)하시겠습니까? 연관된 데이터도 모두 삭제됩니다.', async (res) => {
+                if (!res) return;
                 
-                const { error } = await supabaseClient.from('profiles').delete().eq('id', id);
-                if (error) {
-                    showModalAlert('삭제 실패: ' + error.message);
+                if (!supabaseClient) {
+                    adminUsersData = adminUsersData.filter(u => u.id !== id);
+                    filterAdminUsers();
+                    showModalAlert('회원이 삭제되었습니다. (로컬)');
                     return;
                 }
-                showModalAlert('회원이 삭제되었습니다.');
-                loadAdminUsers();
-            } catch (err) {
-                showModalAlert('삭제 중 오류가 발생했습니다: ' + err.message);
-            }
+
+                try {
+                    // 혹시 모를 외래 키 제약 조건을 피하기 위해 해당 회원의 건물 먼저 삭제 시도
+                    await supabaseClient.from('buildings').delete().eq('owner_id', id);
+                    
+                    const { error } = await supabaseClient.from('profiles').delete().eq('id', id);
+                    if (error) {
+                        showModalAlert('삭제 실패: ' + error.message);
+                        return;
+                    }
+                    showModalAlert('회원이 삭제되었습니다.');
+                    loadAdminUsers();
+                } catch (err) {
+                    showModalAlert('삭제 중 오류가 발생했습니다: ' + err.message);
+                }
+            });
         }
 
         async function loadAdminBuildings() {
@@ -2991,6 +3049,7 @@
 
         function renderAdminBuildings(buildings) {
             const list = document.getElementById('admin-buildings-list');
+            if (!list) return;
             if (buildings.length === 0) {
                 list.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #a0aec0;">등록된 건물이 없습니다.</td></tr>';
                 return;
@@ -3016,41 +3075,49 @@
             `}).join('');
         }
 
-        async function toggleBuildingVerify(id, currentStatus) {
-            if (!confirm(currentStatus ? '이 건물의 인증을 취소하시겠습니까?' : '이 건물을 검증완료 처리하시겠습니까?')) return;
-            
-            const { error } = await supabaseClient
-                .from('buildings')
-                .update({ is_verified: !currentStatus })
-                .eq('id', id);
+        function toggleBuildingVerify(id, currentStatus) {
+            showModalConfirm(currentStatus ? '이 건물의 인증을 취소하시겠습니까?' : '이 건물을 검증완료 처리하시겠습니까?', async (res) => {
+                if (!res) return;
                 
-            if (error) {
-                showModalAlert('인증 상태 변경 실패: ' + error.message);
-                return;
-            }
-            showModalAlert('건물 인증 상태가 변경되었습니다.');
-            loadAdminBuildings();
-        }
-
-        async function deleteAdminBuilding(id) {
-            if (!confirm('정말로 이 건물을 시스템에서 강제 삭제하시겠습니까? 연관된 모든 데이터가 삭제됩니다.')) return;
-            
-            if (!supabaseClient) {
-                showModalAlert('건물이 삭제되었습니다. (로컬)');
-                return;
-            }
-
-            try {
-                const { error } = await supabaseClient.from('buildings').delete().eq('id', id);
+                const { error } = await supabaseClient
+                    .from('buildings')
+                    .update({ is_verified: !currentStatus })
+                    .eq('id', id);
+                    
                 if (error) {
-                    showModalAlert('삭제 실패: ' + error.message);
+                    showModalAlert('인증 상태 변경 실패: ' + error.message);
                     return;
                 }
-                showModalAlert('건물이 삭제되었습니다.');
-                loadAdminBuildings();
-            } catch (err) {
-                showModalAlert('삭제 중 오류가 발생했습니다: ' + err.message);
-            }
+                showModalAlert('건물 인증 상태가 변경되었습니다.');
+                loadAdminUsers();
+            });
+        }
+
+        function deleteAdminBuilding(id) {
+            showModalConfirm('정말로 이 건물을 시스템에서 강제 삭제하시겠습니까? 연관된 모든 데이터가 삭제됩니다.', async (res) => {
+                if (!res) return;
+                
+                if (!supabaseClient) {
+                    showModalAlert('건물이 삭제되었습니다. (로컬)');
+                    return;
+                }
+
+                try {
+                    const { data, error } = await supabaseClient.from('buildings').delete().eq('id', id).select();
+                    if (error) {
+                        showModalAlert('삭제 실패: ' + error.message);
+                        return;
+                    }
+                    if (!data || data.length === 0) {
+                        showModalAlert('삭제 실패: DB 권한(RLS) 문제로 삭제되지 않았습니다. Supabase에서 Delete 정책을 확인하세요.');
+                        return;
+                    }
+                    showModalAlert('건물이 삭제되었습니다.');
+                    loadAdminUsers();
+                } catch (err) {
+                    showModalAlert('삭제 중 오류가 발생했습니다: ' + err.message);
+                }
+            });
         }
 
         // --- Custom Calendar Logic ---
