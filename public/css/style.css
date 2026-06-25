@@ -1,0 +1,327 @@
+:root {
+            --primary-deep-navy: #1a365d;
+            --primary-light-blue: #2b6cb0;
+            --point-orange: #ed8936;
+            --background-gray: #f7fafc;
+            --card-shadow: 0 10px 25px rgba(26, 54, 93, 0.05), 0 2px 8px rgba(0, 0, 0, 0.02);
+            --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+            background-color: var(--background-gray);
+            color: #2d3748;
+            line-height: 1.6;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* 인증 레이아웃 */
+        .auth-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+        }
+
+        .auth-card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: var(--card-shadow);
+            width: 100%;
+            max-width: 460px;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .auth-logo {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--primary-deep-navy);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .auth-logo i {
+            color: var(--primary-light-blue);
+        }
+
+        /* 권한 선택 탭 */
+        .role-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            background-color: #edf2f7;
+            padding: 6px;
+            border-radius: 10px;
+        }
+
+        .role-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            color: #718096;
+            transition: var(--transition-smooth);
+        }
+
+        .role-btn.active {
+            background-color: white;
+            color: var(--primary-deep-navy);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+            transition: var(--transition-smooth);
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-light-blue);
+            box-shadow: 0 0 0 3px rgba(43, 108, 176, 0.15);
+        }
+
+        .btn-auth {
+            width: 100%;
+            background-color: var(--primary-deep-navy);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 15px;
+            margin-top: 10px;
+            transition: var(--transition-smooth);
+        }
+
+        .btn-auth:hover {
+            background-color: #2c5282;
+        }
+
+        .auth-switch {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #718096;
+        }
+
+        .auth-switch a {
+            color: var(--primary-light-blue);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* GNB */
+        .navbar {
+            background-color: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 15px 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+
+        .navbar-brand {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary-deep-navy);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .navbar-brand i {
+            color: var(--primary-light-blue);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .btn-logout {
+            background: none;
+            border: 1px solid #cbd5e0;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #718096;
+            transition: var(--transition-smooth);
+        }
+
+        .btn-logout:hover {
+            background-color: #edf2f7;
+            color: #2d3748;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--primary-deep-navy);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* 메인 레이아웃 */
+        .main-container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .dashboard-layout {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 992px) {
+            .dashboard-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 30px;
+            transition: var(--transition-smooth);
+        }
+
+        .card-header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary-deep-navy);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn {
+            background-color: var(--primary-light-blue);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition-smooth);
+        }
+
+        .btn:hover { opacity: 0.95; }
+        .btn-orange { background-color: var(--point-orange); }
+
+        .inventory-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .inventory-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #edf2f7;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: white;
+        }
+        .badge-orange { background-color: var(--point-orange); }
+        .badge-blue { background-color: var(--primary-light-blue); }
+
+        .pending-invite-card {
+            background-color: #fffaf0;
+            border: 1px dashed var(--point-orange);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* 드롭다운 메뉴 스타일 */
+        .dropdown-item {
+            display: block;
+            padding: 10px 15px;
+            color: #4a5568;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: var(--transition-smooth);
+        }
+        .dropdown-item:hover {
+            background-color: #edf2f7;
+            color: var(--primary-deep-navy);
+        }
+
+        .story-card {
+            scroll-margin-top: 80px;
+        }
