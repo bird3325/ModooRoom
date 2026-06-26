@@ -315,6 +315,10 @@
                     // 15가지 상세 항목 필드 동적 생성
                     const fieldsMeta = [
                         { id: 'ocr_room_number', label: '1. 임대할 부분 (호실)', placeholder: '예: 302호' },
+                        { id: 'ocr_room_count', label: '1-1. 방 개수', placeholder: '예: 1' },
+                        { id: 'ocr_bathroom_count', label: '1-2. 화장실 개수', placeholder: '예: 1' },
+                        { id: 'ocr_living_room_count', label: '1-3. 거실 개수', placeholder: '예: 0' },
+                        { id: 'ocr_veranda_count', label: '1-4. 베란다 개수', placeholder: '예: 1' },
                         { id: 'ocr_area', label: '2. 임대 면적 (㎡)', placeholder: '예: 24.5' },
                         { id: 'ocr_deposit', label: '3. 보증금 (원)', placeholder: '예: 10000000' },
                         { id: 'ocr_monthly_rent', label: '4. 차임(월세) (원)', placeholder: '예: 550000' },
@@ -2480,7 +2484,7 @@ async function executeGeminiExtraction() {
                 
                 const data = result.data;
                 const fields = [
-                    'ocr_room_number', 'ocr_area', 'ocr_deposit', 'ocr_monthly_rent', 'ocr_maintenance_fee', 'ocr_cleaning_fee',
+                    'ocr_room_number', 'ocr_room_count', 'ocr_bathroom_count', 'ocr_living_room_count', 'ocr_veranda_count', 'ocr_area', 'ocr_deposit', 'ocr_monthly_rent', 'ocr_maintenance_fee', 'ocr_cleaning_fee',
                     'ocr_contract_date', 'ocr_lease_start_date', 'ocr_lease_end_date', 'ocr_tenant_name', 'ocr_tenant_phone', 'ocr_broker_address',
                     'ocr_broker_agency_name', 'ocr_broker_representative', 'ocr_broker_registration_no', 'ocr_broker_phone'
                 ];
@@ -2549,6 +2553,10 @@ async function submitExtractedContract(event) {
                         owner_id: session.user.id,
                         status: 'matched',
                         room_number: contractData['ocr_room_number'],
+                        room_count: contractData['ocr_room_count'],
+                        bathroom_count: contractData['ocr_bathroom_count'],
+                        living_room_count: contractData['ocr_living_room_count'],
+                        veranda_count: contractData['ocr_veranda_count'],
                         area: contractData['ocr_area'],
                         deposit: contractData['ocr_deposit'] ? parseInt(contractData['ocr_deposit']) : 0,
                         monthly_rent: contractData['ocr_monthly_rent'] ? parseInt(contractData['ocr_monthly_rent']) : 0,

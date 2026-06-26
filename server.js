@@ -324,7 +324,6 @@ const server = http.createServer(async (req, res) => {
         let extractedData = null;
         let methodUsed = '';
 
-        // API 키가 존재할 경우 실제 Gemini API 호출 시도
         if (apiKey && apiKey.trim().length > 10) {
             try {
                 console.log('[Gemini API 호출 시작...]');
@@ -334,10 +333,14 @@ const server = http.createServer(async (req, res) => {
                 
                 const prompt = `
 당신은 대한민국 임대차계약서 분석 전문가입니다.
-첨부된 임대차 계약서 이미지에서 아래의 15가지 필드 정보를 정확히 추출해서 반드시 순수한 JSON 형식으로만 응답해주세요. 마크다운(\`\`\`) 등 불필요한 텍스트는 일체 포함하지 마세요.
+첨부된 임대차 계약서 이미지에서 아래의 필드 정보를 정확히 추출해서 반드시 순수한 JSON 형식으로만 응답해주세요. 마크다운(\`\`\`) 등 불필요한 텍스트는 일체 포함하지 마세요.
 
-추출해야 할 15가지 필드 (JSON key 이름 일치 필수):
+추출해야 할 필드 (JSON key 이름 일치 필수):
 1. ocr_room_number: 임대할 부분 (호실, 숫자만 추출, 예: 302)
+1-1. ocr_room_count: 해당 호실 내 방 개수 (숫자만 추출, 예: 1)
+1-2. ocr_bathroom_count: 해당 호실 내 화장실 개수 (숫자만 추출, 예: 1)
+1-3. ocr_living_room_count: 해당 호실 내 거실 개수 (숫자만 추출, 예: 0)
+1-4. ocr_veranda_count: 해당 호실 내 베란다/발코니 개수 (숫자만 추출, 예: 1)
 2. ocr_area: 임대 면적 (m, ㎡ 등 단위 제외하고 숫자만 추출, 예: 24.5)
 3. ocr_deposit: 보증금 (원 단위 숫자만, 예: 10000000)
 4. ocr_monthly_rent: 차임(월세) (원 단위 숫자만, 예: 550000)
@@ -374,6 +377,10 @@ const server = http.createServer(async (req, res) => {
                             type: 'OBJECT',
                             properties: {
                                 ocr_room_number: { type: 'STRING', description: '임대할 부분 호실 (숫자만)' },
+                                ocr_room_count: { type: 'STRING', description: '해당 호실 내 방 개수 (숫자만)' },
+                                ocr_bathroom_count: { type: 'STRING', description: '해당 호실 내 화장실 개수 (숫자만)' },
+                                ocr_living_room_count: { type: 'STRING', description: '해당 호실 내 거실 개수 (숫자만)' },
+                                ocr_veranda_count: { type: 'STRING', description: '해당 호실 내 베란다 개수 (숫자만)' },
                                 ocr_area: { type: 'STRING', description: '임대 면적 (m, ㎡ 등 단위 제외하고 숫자만)' },
                                 ocr_deposit: { type: 'STRING', description: '보증금 (원 단위 숫자만)' },
                                 ocr_monthly_rent: { type: 'STRING', description: '차임(월세) (원 단위 숫자만)' },
@@ -391,7 +398,8 @@ const server = http.createServer(async (req, res) => {
                                 ocr_broker_phone: { type: 'STRING', description: '개업공인중개사 전화번호' }
                             },
                             required: [
-                                'ocr_room_number', 'ocr_area', 'ocr_deposit', 'ocr_monthly_rent',
+                                'ocr_room_number', 'ocr_room_count', 'ocr_bathroom_count', 'ocr_living_room_count', 'ocr_veranda_count',
+                                'ocr_area', 'ocr_deposit', 'ocr_monthly_rent',
                                 'ocr_maintenance_fee', 'ocr_cleaning_fee', 'ocr_contract_date',
                                 'ocr_lease_start_date', 'ocr_lease_end_date', 'ocr_tenant_name',
                                 'ocr_tenant_phone', 'ocr_broker_address', 'ocr_broker_agency_name',
@@ -406,16 +414,15 @@ const server = http.createServer(async (req, res) => {
                     text = text.replace(/```json/g, '').replace(/```/g, '').trim();
                     extractedData = JSON.parse(text);
                     methodUsed = 'Gemini 2.5 Flash';
-                    console.log('[Gemini API 호출 성공: 15개 항목 추출 완료]');
+                    console.log('[Gemini API 호출 성공: 정보 추출 완료]');
                 }
             } catch (geminiError) {
                 console.error('[Gemini API 호출 실패, Tesseract OCR로 대체 진행합니다]', geminiError);
             }
         }
 
-        // Gemini 호출이 실패했거나 API 키가 없는 경우 Tesseract OCR + 정규식 룰베이스 파싱 진행
         if (!extractedData) {
-            console.log('[Tesseract OCR 기반 15개 항목 분석 시작...]');
+            console.log('[Tesseract OCR 기반 분석 시작...]');
             const tesseract = require('tesseract.js');
             const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
             const buffer = Buffer.from(base64Data, 'base64');
@@ -423,32 +430,37 @@ const server = http.createServer(async (req, res) => {
             const text = ocrResult.data.text;
             const cleanText = text.replace(/\s+/g, '');
             
-            // 1. 호실
             const roomMatch = text.match(/(?:제\s*|호실\s*|\s)([0-9]{2,4})\s*호/) || cleanText.match(/(?:제|호실)([0-9]{2,4})호/);
             const room = roomMatch ? roomMatch[1] : '302';
+
+            const roomCountMatch = text.match(/방\s*([0-9]{1,2})\s*개/) || cleanText.match(/방([0-9]{1,2})개/);
+            const roomCount = roomCountMatch ? roomCountMatch[1] : '1';
+
+            const bathroomCountMatch = text.match(/(?:화장실|욕실)\s*([0-9]{1,2})\s*개/) || cleanText.match(/(?:화장실|욕실)([0-9]{1,2})개/);
+            const bathroomCount = bathroomCountMatch ? bathroomCountMatch[1] : '1';
+
+            const livingRoomCountMatch = text.match(/거실\s*([0-9]{1,2})\s*개/) || cleanText.match(/거실([0-9]{1,2})개/);
+            const livingRoomCount = livingRoomCountMatch ? livingRoomCountMatch[1] : '0';
+
+            const verandaCountMatch = text.match(/(?:베란다|발코니)\s*([0-9]{1,2})\s*개/) || cleanText.match(/(?:베란다|발코니)([0-9]{1,2})개/);
+            const verandaCount = verandaCountMatch ? verandaCountMatch[1] : '1';
             
-            // 2. 면적
             const areaMatch = text.match(/([0-9.]+)\s*(?:㎡|m|m²)?/) || text.match(/면적\s*([0-9.]+)/) || cleanText.match(/면적.*?([0-9.]+)/);
             let area = areaMatch ? areaMatch[1] : '24.5';
             area = area.replace(/[m㎡²]/gi, '').trim();
             
-            // 3. 보증금
             const depositMatch = text.match(/보증금[^0-9]*([0-9,]+(?:만|억)?)\s*원?/) || cleanText.match(/보증금.*?([0-9,]+(?:만|억)?)원/);
             const deposit = depositMatch ? depositMatch[1] : '10,000,000';
             
-            // 4. 차임(월세)
             const rentMatch = text.match(/차임[^0-9]*([0-9,]+(?:만)?)\s*원?/) || text.match(/월세[^0-9]*([0-9,]+(?:만)?)\s*원?/) || cleanText.match(/차임.*?([0-9,]+(?:만)?)원/) || cleanText.match(/월세.*?([0-9,]+(?:만)?)원/);
             const rent = rentMatch ? rentMatch[1] : '550,000';
             
-            // 5. 관리비
             const maintMatch = text.match(/관리비[^0-9]*([0-9,]+(?:만)?)\s*원?/) || cleanText.match(/관리비.*?([0-9,]+(?:만)?)원/);
             const maint = maintMatch ? maintMatch[1] : '70,000';
             
-            // 6. 청소비
             const cleanMatch = text.match(/청소비[^0-9]*([0-9,]+(?:만)?)\s*원?/) || cleanText.match(/청소비.*?([0-9,]+(?:만)?)원/);
             const cleaning = cleanMatch ? cleanMatch[1] : '0';
             
-            // 7. 계약일
             const contractDateMatch = text.match(/([0-9]{4})\s*년\s*([0-9]{1,2})\s*월\s*([0-9]{1,2})\s*일/) || cleanText.match(/([0-9]{4})년([0-9]{1,2})월([0-9]{1,2})일/);
             let contractDate = '2026-06-16';
             if (contractDateMatch) {
@@ -458,7 +470,6 @@ const server = http.createServer(async (req, res) => {
                 contractDate = `${y}-${m}-${d}`;
             }
             
-            // 8. 임대차 시작일 & 종료일
             const periodMatch = text.match(/([0-9]{4})년\s*([0-9]{1,2})월\s*([0-9]{1,2})일부터.*?([0-9]{4})년\s*([0-9]{1,2})월\s*([0-9]{1,2})일까지/) || 
                                 cleanText.match(/([0-9]{4})년([0-9]{1,2})월([0-9]{1,2})일부터.*?([0-9]{4})년([0-9]{1,2})월([0-9]{1,2})일까지/);
             let leaseStartDate = '2026-06-16';
@@ -468,7 +479,6 @@ const server = http.createServer(async (req, res) => {
                 leaseEndDate = `${periodMatch[4]}-${periodMatch[5].padStart(2, '0')}-${periodMatch[6].padStart(2, '0')}`;
             }
             
-            // 9. 임차인 성명
             const tenantNameMatch = text.match(/임차인(?:성명)?(?:\s*:\s*|\s+)([가-힣]{2,4})/) || cleanText.match(/임차인(?:성명)?(?:[^가-힣]*)([가-힣]{2,4})/);
             const tenantName = tenantNameMatch ? tenantNameMatch[1] : '홍길동';
             
@@ -498,6 +508,10 @@ const server = http.createServer(async (req, res) => {
 
             extractedData = {
                 ocr_room_number: room,
+                ocr_room_count: roomCount,
+                ocr_bathroom_count: bathroomCount,
+                ocr_living_room_count: livingRoomCount,
+                ocr_veranda_count: verandaCount,
                 ocr_area: area,
                 ocr_deposit: deposit,
                 ocr_monthly_rent: rent,

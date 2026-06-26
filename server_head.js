@@ -4227,6 +4227,10 @@ const server = http.createServer(async (req, res) => {
             success: true,
             data: {
               ocr_room_number: "302호",
+              ocr_room_count: "1",
+              ocr_bathroom_count: "1",
+              ocr_living_room_count: "0",
+              ocr_veranda_count: "1",
               ocr_area: "24.5",
               ocr_deposit: "10000000",
               ocr_monthly_rent: "550000",
