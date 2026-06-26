@@ -379,6 +379,157 @@
         </div>
     </div>
 
+    <!-- 계약서 OCR 추출 뷰 -->
+    <div id="ocr-extraction-view" class="hidden">
+        <style>
+            .magnifier-lens {
+                position: absolute;
+                border: 3px solid var(--point-orange);
+                border-radius: 50%;
+                cursor: none;
+                width: 150px;
+                height: 150px;
+                display: none;
+                pointer-events: none;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                z-index: 100;
+                background-repeat: no-repeat;
+            }
+            .selection-box {
+                position: absolute;
+                border: 2px dashed #764ba2;
+                background: rgba(118, 75, 162, 0.15);
+                display: none;
+                pointer-events: none;
+                z-index: 99;
+            }
+            .extraction-popup {
+                position: absolute;
+                background: white;
+                border: 1px solid #cbd5e0;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                padding: 12px;
+                z-index: 1000;
+                width: 220px;
+                display: none;
+            }
+            .extraction-popup h5 {
+                margin: 0 0 8px 0;
+                font-size: 13px;
+                color: var(--primary-deep-navy);
+            }
+            .extraction-field-btn {
+                display: block;
+                width: 100%;
+                text-align: left;
+                background: #f7fafc;
+                border: 1px solid #e2e8f0;
+                padding: 5px 8px;
+                margin-top: 4px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 11px;
+                transition: all 0.2s;
+                font-weight: 500;
+                color: #4a5568;
+            }
+            .extraction-field-btn:hover {
+                background: #e6fffa;
+                border-color: #319795;
+                color: #234e52;
+            }
+        </style>
+        <nav class="navbar">
+            <div class="navbar-brand" style="cursor: pointer;" onclick="showView('main-app')">
+                <i class="fa-solid fa-house-chimney-window"></i>
+                <span>모두의 방 <span style="font-size:12px; color:var(--primary-light-blue);">[임대인 파트너]</span></span>
+            </div>
+            <div class="user-profile" style="position: relative;">
+                <button id="ocr-owner-display-name" class="btn-logout" style="border:none; font-weight: 500; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleOcrOwnerMenu(event)">
+                    김임대 파트너 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
+                </button>
+                <div id="ocr-owner-dropdown" class="dropdown-menu hidden" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: var(--card-shadow); padding: 8px 0; min-width: 150px; z-index: 1000; margin-top: 10px;">
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('main-app'); document.getElementById('ocr-owner-dropdown').classList.add('hidden');">메인 페이지</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('auth-page'); document.getElementById('ocr-owner-dropdown').classList.add('hidden');">마이페이지</a>
+                    <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="handleLogout()" style="color: #e53e3e;">로그아웃</a>
+                </div>
+            </div>
+        </nav>
+        <div class="content-area" style="padding: 20px; max-width: 1200px; margin: 0 auto;">
+            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 20px; display: flex; gap: 20px; flex-wrap: wrap;">
+                
+                <!-- 왼쪽: 계약서 이미지 미리보기 -->
+                <div style="flex: 1; min-width: 300px; border-right: 1px solid #edf2f7; padding-right: 20px; position: relative;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4 style="margin: 0; color: #2d3748; font-size: 15px;">계약서 원본 이미지</h4>
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" id="btn-mode-magnifier" class="btn btn-orange" onclick="setOcrMode('magnifier')" style="font-size: 12px; padding: 5px 10px;"><i class="fa-solid fa-magnifying-glass"></i> 돋보기</button>
+                            <button type="button" id="btn-mode-select" class="btn" onclick="setOcrMode('select')" style="font-size: 12px; padding: 5px 10px; background: #e2e8f0; color: #4a5568;"><i class="fa-solid fa-crop"></i> 선택 AI 추출</button>
+                        </div>
+                    </div>
+                    
+                    <div id="ocr-image-wrapper" style="background: #f7fafc; border: 1px solid #cbd5e0; border-radius: 8px; padding: 0; text-align: center; overflow: hidden; position: relative; user-select: none; display: flex; justify-content: center; align-items: center;">
+                        <img id="ocr-preview-img" src="" alt="계약서 미리보기" style="max-width: 100%; max-height: 70vh; object-fit: contain; display: block; -webkit-user-drag: none;">
+                        <div id="magnifier-lens" class="magnifier-lens"></div>
+                        <div id="selection-box" class="selection-box"></div>
+                    </div>
+                    
+                    <div id="extraction-popup" class="extraction-popup">
+                        <h5>선택 영역 텍스트 추출</h5>
+                        <div id="extracted-text-preview" style="background: #f7fafc; border: 1px solid #e2e8f0; padding: 6px; border-radius: 4px; font-size: 11px; max-height: 60px; overflow-y: auto; margin-bottom: 8px; word-break: break-all; font-weight: bold; color: var(--primary-deep-navy);">
+                            추출 중...
+                        </div>
+                        <div style="font-size: 10px; color: #718096; margin-bottom: 4px;">입력할 항목 선택:</div>
+                        <div style="max-height: 150px; overflow-y: auto;">
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_room_number')">1. 호실</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_area')">2. 임대 면적</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_deposit')">3. 보증금</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_monthly_rent')">4. 월세</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_maintenance_fee')">5. 관리비</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_cleaning_fee')">6. 청소비</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_contract_date')">7. 계약일</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_lease_start_date')">8. 임대차 시작일</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_lease_end_date')">8-1. 임대차 종료일</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_tenant_name')">9. 임차인 성명</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_tenant_phone')">10. 임차인 전화번호</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_broker_address')">11. 중개업소 소재지</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_broker_agency_name')">12. 중개사무소 명칭</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_broker_representative')">13. 중개사 대표명</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_broker_registration_no')">14. 중개사 등록번호</button>
+                            <button type="button" class="extraction-field-btn" onclick="applySelectedText('ocr_broker_phone')">15. 중개사 전화번호</button>
+                        </div>
+                        <button type="button" class="btn" style="width:100%; margin-top: 8px; padding: 4px; font-size: 11px; background: #e2e8f0; color: #4a5568;" onclick="closeExtractionPopup()">닫기</button>
+                    </div>
+
+                    <p style="font-size: 12px; color: #718096; margin-top: 10px; line-height: 1.5;">
+                        <i class="fa-solid fa-info-circle" style="color: var(--point-orange);"></i> 이미지 영역을 드래그하여 원하는 부분의 텍스트를 개별적으로 선택해서 AI 추출 및 폼 필드 입력이 가능합니다. 돋보기 모드에서 세부 텍스트를 확대해 볼 수 있습니다.
+                    </p>
+                </div>
+
+                <!-- 오른쪽: 추출 데이터 폼 -->
+                <div style="flex: 1; min-width: 300px;">
+                    <form onsubmit="submitExtractedContract(event)" style="display: flex; flex-direction: column; height: 100%;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #edf2f7; padding-bottom: 10px; margin-bottom: 15px;">
+                            <h4 style="margin: 0; color: #2d3748; font-size: 15px;">계약 정보 15개 항목</h4>
+                            <button type="button" class="btn" style="background: #edf2f7; color: #4a5568; padding: 4px 8px; font-size: 12px; border-radius: 4px; border: 1px solid #cbd5e0;" onclick="showView('owner-app')"><i class="fa-solid fa-xmark"></i> 닫기</button>
+                        </div>
+                        
+                        <div id="ocr-fields-container" style="flex: 1; overflow-y: auto; padding-right: 10px; max-height: 60vh;">
+                            <!-- JS will populate fields here -->
+                        </div>
+
+                        <div style="margin-top: 20px; border-top: 1px solid #edf2f7; padding-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                            <button type="button" class="btn" style="background: #e2e8f0; color: #4a5568;" onclick="showView('owner-app')"><i class="fa-solid fa-xmark"></i> 닫기</button>
+                            <button type="submit" class="btn btn-orange">최종 등록</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 4. 임차인 메인 대시보드 -->
     <div id="tenant-app" class="hidden">
         <nav class="navbar">
@@ -822,8 +973,12 @@
                     <input type="text" id="confirm-rent" class="form-control" />
                 </div>
                 <div class="form-group">
-                    <label>임대기간</label>
-                    <input type="text" id="confirm-lease-period" class="form-control" />
+                    <label>임대기간 (시작일)</label>
+                    <input type="text" id="confirm-lease-start-date" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>임대기간 (종료일)</label>
+                    <input type="text" id="confirm-lease-end-date" class="form-control" />
                 </div>
                 <div class="form-group">
                     <label>공인중개사 명칭</label>
