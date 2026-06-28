@@ -1,0 +1,108 @@
+<div id="story-detail-app" class="hidden">
+        <nav class="navbar">
+            <div class="navbar-brand" style="cursor: pointer;" onclick="showView('main-app')">
+                <i class="fa-solid fa-house-chimney-window"></i>
+                <span>모두의 방 <span style="font-size:12px; color:var(--primary-light-blue);">[룸스토리 피드]</span></span>
+            </div>
+            <div class="user-profile">
+                <button class="btn-logout" onclick="showView('main-app')"><i class="fa-solid fa-arrow-left"></i> 뒤로가기</button>
+            </div>
+        </nav>
+        
+        <div class="main-container" style="max-width: 800px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: var(--primary-deep-navy);">실시간 방 구경하기</h2>
+                <button class="btn btn-orange" onclick="handleWriteStory()"><i class="fa-solid fa-pen"></i> 내 방 자랑하기 (등록)</button>
+            </div>
+
+            <div class="story-feed">
+                <!-- 피드 카드 1 -->
+                <div id="story-1" class="card story-card" style="padding: 0; overflow: hidden; margin-bottom: 35px;">
+                    <div style="padding: 15px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #edf2f7;">
+                        <div class="avatar" style="width: 32px; height: 32px; font-size: 14px; background: var(--point-orange);">지현</div>
+                        <span style="font-weight: 600; font-size: 14px;">지현님의 아늑한 원룸</span>
+                    </div>
+                    <div style="width: 100%; height: 400px; background: url('https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80') center/cover;"></div>
+                    <div style="padding: 20px;">
+                        <p style="font-size: 14px; margin-bottom: 10px; line-height: 1.6;">이번에 새로 이사 온 관악구 원룸이에요! 우드톤으로 꾸며봤는데 어떤가요? 😊 혼자 살기 딱 좋은 크기에 빛도 잘 들어서 너무 마음에 듭니다.</p>
+                        <p style="font-size: 13px; color: var(--primary-light-blue); margin-bottom: 20px;">#원룸인테리어 #우드톤 #자취방꾸미기</p>
+                        
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+                            <h4 style="font-size: 13px; margin-bottom: 10px; color: var(--primary-deep-navy);">댓글</h4>
+                            <div style="margin-bottom: 15px; font-size: 13px; color: #4a5568;">
+                                <div style="margin-bottom: 8px;"><span style="font-weight: 600; color: #2d3748;">영수</span> 와 방이 너무 예뻐요! 책상은 어디 제품인가요?</div>
+                                <div style="margin-bottom: 8px;"><span style="font-weight: 600; color: #2d3748;">미희</span> 저도 우드톤 좋아하는데 참고해야겠어요.</div>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: stretch;">
+                                <input type="text" class="form-control" placeholder="댓글을 입력하세요..." style="flex: 1; min-width: 0; padding: 8px 12px; font-size: 13px; margin: 0;">
+                                <button class="btn btn-orange" style="flex: 0 0 70px; min-width: 70px; display: flex; justify-content: center; align-items: center; padding: 0; margin: 0; white-space: nowrap; word-break: keep-all;" onclick="handleCommentSubmit()">등록</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 피드 카드 2 -->
+                <div id="story-2" class="card story-card" style="padding: 0; overflow: hidden; margin-bottom: 35px;">
+                    <div style="padding: 15px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #edf2f7;">
+                        <div class="avatar" style="width: 32px; height: 32px; font-size: 14px; background: var(--primary-light-blue);">철수</div>
+                        <span style="font-weight: 600; font-size: 14px;">가성비 갑 미니멀 투룸</span>
+                    </div>
+                    <div style="width: 100%; height: 400px; background: url('https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=800&q=80') center/cover;"></div>
+                    <div style="padding: 20px;">
+                        <p style="font-size: 14px; margin-bottom: 10px; line-height: 1.6;">최대한 물건을 줄이고 미니멀하게 살아보고 있어요. 청소하기 너무 편하고 공간도 훨씬 넓어보입니다. 화이트와 그레이 톤으로 맞췄어요.</p>
+                        <p style="font-size: 13px; color: var(--primary-light-blue); margin-bottom: 20px;">#미니멀라이프 #모던</p>
+                        
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+                            <h4 style="font-size: 13px; margin-bottom: 10px; color: var(--primary-deep-navy);">댓글</h4>
+                            <div style="display: flex; gap: 10px; align-items: stretch;">
+                                <input type="text" class="form-control" placeholder="댓글을 입력하세요..." style="flex: 1; min-width: 0; padding: 8px 12px; font-size: 13px; margin: 0;">
+                                <button class="btn btn-orange" style="flex: 0 0 70px; min-width: 70px; display: flex; justify-content: center; align-items: center; padding: 0; margin: 0; white-space: nowrap; word-break: keep-all;" onclick="handleCommentSubmit()">등록</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 피드 카드 3 -->
+                <div id="story-3" class="card story-card" style="padding: 0; overflow: hidden; margin-bottom: 35px;">
+                    <div style="padding: 15px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #edf2f7;">
+                        <div class="avatar" style="width: 32px; height: 32px; font-size: 14px; background: var(--primary-deep-navy);">유진</div>
+                        <span style="font-weight: 600; font-size: 14px;">햇살 가득 화이트 인테리어</span>
+                    </div>
+                    <div style="width: 100%; height: 400px; background: url('https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800&q=80') center/cover;"></div>
+                    <div style="padding: 20px;">
+                        <p style="font-size: 14px; margin-bottom: 10px; line-height: 1.6;">남향이라 아침부터 햇살이 쏟아지는 제 방입니다! 화이트 가구들로 배치해서 더 화사하게 꾸며보았어요.</p>
+                        <p style="font-size: 13px; color: var(--primary-light-blue); margin-bottom: 20px;">#채광맛집 #화이트톤</p>
+                        
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+                            <h4 style="font-size: 13px; margin-bottom: 10px; color: var(--primary-deep-navy);">댓글</h4>
+                            <div style="display: flex; gap: 10px; align-items: stretch;">
+                                <input type="text" class="form-control" placeholder="댓글을 입력하세요..." style="flex: 1; min-width: 0; padding: 8px 12px; font-size: 13px; margin: 0;">
+                                <button class="btn btn-orange" style="flex: 0 0 70px; min-width: 70px; display: flex; justify-content: center; align-items: center; padding: 0; margin: 0; white-space: nowrap; word-break: keep-all;" onclick="handleCommentSubmit()">등록</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 피드 카드 4 -->
+                <div id="story-4" class="card story-card" style="padding: 0; overflow: hidden; margin-bottom: 35px;">
+                    <div style="padding: 15px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #edf2f7;">
+                        <div class="avatar" style="width: 32px; height: 32px; font-size: 14px; background: var(--point-orange);">민재</div>
+                        <span style="font-weight: 600; font-size: 14px;">초록초록 싱그러운 내 방</span>
+                    </div>
+                    <div style="width: 100%; height: 400px; background: url('https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&q=80') center/cover;"></div>
+                    <div style="padding: 20px;">
+                        <p style="font-size: 14px; margin-bottom: 10px; line-height: 1.6;">식물 키우는 재미에 푹 빠진 식물집사입니다. 방 곳곳에 화분을 배치하니 공기도 맑아지는 기분이에요.</p>
+                        <p style="font-size: 13px; color: var(--primary-light-blue); margin-bottom: 20px;">#플랜테리어 #식물집사</p>
+                        
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+                            <h4 style="font-size: 13px; margin-bottom: 10px; color: var(--primary-deep-navy);">댓글</h4>
+                            <div style="display: flex; gap: 10px; align-items: stretch;">
+                                <input type="text" class="form-control" placeholder="댓글을 입력하세요..." style="flex: 1; min-width: 0; padding: 8px 12px; font-size: 13px; margin: 0;">
+                                <button class="btn btn-orange" style="flex: 0 0 70px; min-width: 70px; display: flex; justify-content: center; align-items: center; padding: 0; margin: 0; white-space: nowrap; word-break: keep-all;" onclick="handleCommentSubmit()">등록</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>

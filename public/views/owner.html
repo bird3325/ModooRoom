@@ -1,0 +1,56 @@
+<div id="owner-app" class="hidden">
+        <nav class="navbar">
+            <div class="navbar-brand" style="cursor: pointer;" onclick="showView('main-app')">
+                <i class="fa-solid fa-house-chimney-window"></i>
+                <span>모두의 방 <span style="font-size:12px; color:var(--primary-light-blue);">[임대인 파트너]</span></span>
+            </div>
+            <div class="user-profile" style="position: relative;">
+                <button id="owner-display-name" class="btn-logout" style="border:none; font-weight: 500; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleOwnerMenu(event)">
+                    김임대 님 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
+                </button>
+                <div id="owner-dropdown" class="dropdown-menu hidden" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: var(--card-shadow); padding: 8px 0; min-width: 150px; z-index: 1000; margin-top: 10px;">
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('main-app'); document.getElementById('owner-dropdown').classList.add('hidden');">메인 페이지</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="goToDashboard(); document.getElementById('owner-dropdown').classList.add('hidden');">대시보드</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('auth-page'); document.getElementById('owner-dropdown').classList.add('hidden');">마이페이지</a>
+                    <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="handleLogout()" style="color: #e53e3e;">로그아웃</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="main-container">
+            <!-- 임차인 역초대 승인 섹션 -->
+            <div id="pending-invites-section"></div>
+
+            <!-- 현재 관리 중인 임차인 섹션 -->
+            <div id="active-tenants-section" style="margin-bottom: 20px;"></div>
+
+            <div class="dashboard-layout">
+                <div>
+                    <div class="card">
+                        <div class="card-title"><i class="fa-solid fa-file-invoice-dollar"></i> 계약서 OCR 등록</div>
+                        <button class="btn" onclick="runOcr()" style="margin-top:15px;">계약서 사진 업로드</button>
+                        <div id="ocr-result" style="margin-top: 15px;"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> 자재 및 소모품 현황</div>
+                        <div class="inventory-list" id="inventory-list"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="card">
+                        <div class="card-title"><i class="fa-solid fa-wrench"></i> 실시간 하자보수 스텝퍼</div>
+                        <p style="font-size:13px; margin-top:10px; color:#718096;">[수리중] 302호 세면대 배수 트랩 교체 진행 중</p>
+                    </div>
+                    <div class="card" style="margin-top: 30px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <div class="card-title" style="margin-bottom: 0;"><i class="fa-solid fa-building-user"></i> 내 건물 관리</div>
+                            <button class="btn btn-orange" style="padding: 6px 12px; font-size: 12px;" onclick="showView('add-building-view')"><i class="fa-solid fa-plus"></i> 건물 추가</button>
+                        </div>
+                        <div id="owner-buildings-list">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>

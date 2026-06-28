@@ -32,10 +32,12 @@ try {
                 if (key === 'SUPABASE_URL') supabaseConfig.url = value;
                 if (key === 'SUPABASE_ANON_KEY') supabaseConfig.key = value;
                 if (key === 'ServiceKey' || key === 'PUBLIC_DATA_API_KEY') publicDataApiKey = value;
+                if (key === 'GEMINI_API_KEY') process.env.GEMINI_API_KEY = value;
             }
         });
     }
     console.log('Loaded supabaseConfig:', supabaseConfig);
+    console.log('Loaded GEMINI_API_KEY present:', !!process.env.GEMINI_API_KEY);
 } catch (e) {
     console.error('.env 파일을 읽는 중 오류 발생:', e);
 }
@@ -44,13 +46,14 @@ try {
 const server = http.createServer(async (req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
   
-  // 정적 파일 서빙 로직 (CSS, JS)
-  if (req.method === 'GET' && (parsedUrl.pathname.startsWith('/css/') || parsedUrl.pathname.startsWith('/js/'))) {
+  // 정적 파일 서빙 로직 (CSS, JS, HTML Views)
+  if (req.method === 'GET' && (parsedUrl.pathname.startsWith('/css/') || parsedUrl.pathname.startsWith('/js/') || parsedUrl.pathname.startsWith('/views/'))) {
     const filePath = path.join(__dirname, 'public', parsedUrl.pathname);
     const ext = path.extname(filePath);
     let contentType = 'text/plain';
     if (ext === '.css') contentType = 'text/css; charset=utf-8';
     if (ext === '.js') contentType = 'application/javascript; charset=utf-8';
+    if (ext === '.html') contentType = 'text/html; charset=utf-8';
     
     try {
         const content = fs.readFileSync(filePath);
@@ -409,12 +412,20 @@ const server = http.createServer(async (req, res) => {
                     }
                 });
                 
-                let text = response.text || response.candidates?.[0]?.content?.parts?.[0]?.text;
+                let text = response.text || (response.candidates?.[0]?.content?.parts?.[0]?.text);
                 if (text) {
-                    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-                    extractedData = JSON.parse(text);
-                    methodUsed = 'Gemini 2.5 Flash';
-                    console.log('[Gemini API 호출 성공: 정보 추출 완료]');
+                    // 마크다운 블록 제거 및 JSON 객체 텍스트 영역만 추출
+                    const jsonMatch = text.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        extractedData = JSON.parse(jsonMatch[0].trim());
+                        methodUsed = 'Gemini 2.5 Flash';
+                        console.log('[Gemini API 호출 성공: 정보 추출 완료]');
+                    } else {
+                        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                        extractedData = JSON.parse(text);
+                        methodUsed = 'Gemini 2.5 Flash';
+                        console.log('[Gemini API 호출 성공: 정보 추출 완료 - 정규식 미검출 대체]');
+                    }
                 }
             } catch (geminiError) {
                 console.error('[Gemini API 호출 실패, Tesseract OCR로 대체 진행합니다]', geminiError);

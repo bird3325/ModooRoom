@@ -1,0 +1,38 @@
+<div id="add-building-view" class="hidden">
+        <nav class="navbar">
+            <div class="navbar-brand" style="cursor: pointer;" onclick="showView('owner-app')">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span style="margin-left: 5px;">대시보드로 돌아가기</span>
+            </div>
+        </nav>
+        
+        <div class="main-container" style="max-width: 800px;">
+            <div class="card" style="border-top: 4px solid var(--primary-light-blue);">
+                <div class="card-title" style="margin-bottom: 25px;"><i class="fa-solid fa-house-medical"></i> 새 건물 등록 및 소유권 인증</div>
+                
+                <p style="font-size: 13.5px; color: #4a5568; margin-bottom: 20px; line-height: 1.5;">
+                    신뢰할 수 있는 플랫폼을 위해 건물 추가 시에도 <strong>소유권 인증(계약서/등기부등본 OCR)</strong>을 필수로 진행합니다.
+                </p>
+                <form onsubmit="submitAddBuilding(event)">
+                    <div class="form-group">
+                        <label>건물 주소</label>
+                        <input type="text" class="form-control" id="add-building-address" required placeholder="클릭하여 주소를 검색하세요" readonly onclick="execDaumPostcodeAddBuilding()" style="cursor: pointer; background-color: #f8fafc;">
+                    </div>
+                    <div class="form-group">
+                        <label>건물명</label>
+                        <input type="text" class="form-control" id="add-building-name" required placeholder="예) 모두빌라 1동">
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-bottom: 8px; display: block;">소유권 증빙 서류 이미지 첨부</label>
+                        <div id="drag-drop-zone-add" style="border: 2px dashed #cbd5e0; border-radius: 12px; padding: 30px 20px; text-align: center; background-color: #f8fafc; cursor: pointer; position: relative;">
+                            <input type="file" id="add-building-file" accept="image/*" required style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;" onchange="handleAddBuildingFileChange(event)">
+                            <i id="drag-drop-icon-add" class="fa-solid fa-cloud-arrow-up" style="font-size: 36px; color: #a0aec0; margin-bottom: 15px;"></i>
+                            <p id="drag-drop-text-add" style="font-size: 14px; font-weight: 600; color: #4a5568; margin-bottom: 5px;">클릭하거나 이미지를 드래그하여 업로드하세요</p>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-orange" style="width: 100%; justify-content: center; margin-top: 15px; padding: 14px;">계약서 OCR 대조 및 건물 추가</button>
+                </form>
+            </div>
+        </div>
+    </div>

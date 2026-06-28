@@ -102,14 +102,15 @@
                 <span>모두의 방 <span style="font-size:12px; color:#718096;">[환영합니다]</span></span>
             </div>
             <div class="user-profile" style="position: relative; display: flex; align-items: center; gap: 15px;">
-                <button class="btn btn-orange" style="padding: 6px 12px; font-size: 12px; border-radius: 6px;" onclick="goToDashboard()">대시보드</button>
                 <button id="main-display-name" class="btn-logout" style="border:none; font-weight: 500; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleUserMenu(event)">
                     사용자님 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
                 </button>
                 <div id="user-dropdown" class="dropdown-menu hidden" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: var(--card-shadow); padding: 8px 0; min-width: 150px; z-index: 1000; margin-top: 10px;">
-                    <a href="#" class="dropdown-item" onclick="showView('auth-page'); document.getElementById('user-dropdown').classList.add('hidden');">마이페이지</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('main-app'); document.getElementById('user-dropdown').classList.add('hidden');">메인 페이지</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="goToDashboard(); document.getElementById('user-dropdown').classList.add('hidden');">대시보드</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('auth-page'); document.getElementById('user-dropdown').classList.add('hidden');">마이페이지</a>
                     <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
-                    <a href="#" class="dropdown-item" onclick="handleLogout()" style="color: #e53e3e;">로그아웃</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="handleLogout()" style="color: #e53e3e;">로그아웃</a>
                 </div>
             </div>
         </nav>
@@ -639,15 +640,15 @@
                 <span>모두의 방 <span style="font-size:12px; color:var(--primary-light-blue);">[마이페이지]</span></span>
             </div>
             <div class="user-profile" style="position: relative; display: flex; align-items: center; gap: 15px;">
-                <button class="btn btn-orange" style="padding: 6px 12px; font-size: 12px; border-radius: 6px;" onclick="goToDashboard()">대시보드</button>
                 <button id="auth-display-name" class="btn-logout" style="border:none; font-weight: 500; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleAuthMenu(event)">
                     사용자님 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
                 </button>
                 <div id="auth-dropdown" class="dropdown-menu hidden" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: var(--card-shadow); padding: 8px 0; min-width: 150px; z-index: 1000; margin-top: 10px;">
-                    <a href="#" class="dropdown-item" onclick="showView('main-app'); document.getElementById('auth-dropdown').classList.add('hidden');">메인 페이지</a>
-                    <a href="#" class="dropdown-item" onclick="showView('auth-page'); document.getElementById('auth-dropdown').classList.add('hidden');">마이페이지</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('main-app'); document.getElementById('auth-dropdown').classList.add('hidden');">메인 페이지</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="goToDashboard(); document.getElementById('auth-dropdown').classList.add('hidden');">대시보드</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('auth-page'); document.getElementById('auth-dropdown').classList.add('hidden');">마이페이지</a>
                     <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
-                    <a href="#" class="dropdown-item" onclick="handleLogout()" style="color: #e53e3e;">로그아웃</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="handleLogout()" style="color: #e53e3e;">로그아웃</a>
                 </div>
             </div>
         </nav>
@@ -822,12 +823,231 @@
                 <i class="fa-solid fa-house-chimney-window"></i>
                 <span>모두의 방 <span style="font-size:12px; color:var(--primary-light-blue);">[내 건물 관리]</span></span>
             </div>
-            <div class="user-profile">
-                <button class="btn-logout" onclick="showView('owner-app')"><i class="fa-solid fa-arrow-left"></i> 뒤로가기</button>
+            <div class="user-profile" style="position: relative;">
+                <button id="bm-display-name" class="btn-logout" style="border:none; font-weight: 500; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleBmMenu(event)">
+                    김임대 님 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
+                </button>
+                <div id="bm-dropdown" class="dropdown-menu hidden" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: var(--card-shadow); padding: 8px 0; min-width: 150px; z-index: 1000; margin-top: 10px;">
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('main-app'); document.getElementById('bm-dropdown').classList.add('hidden');">메인 페이지</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('auth-page'); document.getElementById('bm-dropdown').classList.add('hidden');">마이페이지</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('owner-app'); document.getElementById('bm-dropdown').classList.add('hidden');">대시보드</a>
+                    <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="handleLogout()" style="color: #e53e3e;">로그아웃</a>
+                </div>
             </div>
         </nav>
         <div class="main-container" style="max-width: 800px;" id="building-management-content">
             <!-- 동적으로 렌더링될 영역 -->
+        </div>
+    </div>
+
+    <!-- 호실 상세 정보 및 계약 정보 통합 수정 페이지 -->
+    <div id="room-detail-page" class="hidden">
+        <nav class="navbar">
+            <div class="navbar-brand" style="cursor: pointer;" onclick="showView('main-app')">
+                <i class="fa-solid fa-house-chimney-window"></i>
+                <span>모두의 방 <span style="font-size:12px; color:var(--primary-light-blue);">[호실 상세 관리]</span></span>
+            </div>
+            <div class="user-profile" style="position: relative;">
+                <button id="rd-display-name" class="btn-logout" style="border:none; font-weight: 500; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleRdMenu(event)">
+                    김임대 님 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
+                </button>
+                <div id="rd-dropdown" class="dropdown-menu hidden" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: var(--card-shadow); padding: 8px 0; min-width: 150px; z-index: 1000; margin-top: 10px;">
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('main-app'); document.getElementById('rd-dropdown').classList.add('hidden');">메인 페이지</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('auth-page'); document.getElementById('rd-dropdown').classList.add('hidden');">마이페이지</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('owner-app'); document.getElementById('rd-dropdown').classList.add('hidden');">대시보드</a>
+                    <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="handleLogout()" style="color: #e53e3e;">로그아웃</a>
+                </div>
+            </div>
+        </nav>
+        <div class="main-container" style="max-width: 800px; padding: 20px 0;">
+            <div class="card" style="border-top: 4px solid var(--primary-light-blue); margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                    <div class="card-title" style="margin-bottom: 0;"><i class="fa-solid fa-door-open"></i> 호실 및 임대차 상세 정보 수정</div>
+                    <button class="btn" style="background: #edf2f7; color: #4a5568; padding: 6px 12px; font-size: 12px;" onclick="showView('owner-app')"><i class="fa-solid fa-xmark"></i> 닫기</button>
+                </div>
+                
+                <form id="room-detail-edit-form" onsubmit="event.preventDefault();">
+                    <input type="hidden" id="rd-building-idx">
+                    <input type="hidden" id="rd-room-idx">
+                    <input type="hidden" id="rd-contract-id">
+
+                    <!-- 계약서 AI 분석 및 자동 입력 영역 -->
+                    <div style="background-color: #f7fafc; border: 1px dashed #cbd5e0; border-radius: 12px; padding: 20px; margin-bottom: 25px; text-align: center;">
+                        <div id="rd-ocr-upload-wrapper">
+                            <h4 style="font-size: 14px; font-weight: 600; color: var(--primary-deep-navy); margin-bottom: 8px;">
+                                <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--point-orange);"></i> 계약서 이미지로 정보 자동 입력 (AI 추출)
+                            </h4>
+                            <p style="font-size: 12px; color: #718096; margin-bottom: 12px;">임대차 계약서 이미지를 업로드하시면 AI가 15개 항목 정보를 실시간 분석하여 자동 기입해 줍니다.</p>
+                            <div id="rd-ocr-drag-zone" style="border: 2px dashed #a0aec0; border-radius: 8px; padding: 15px; background-color: #ffffff; cursor: pointer; position: relative;">
+                                <input type="file" id="rd-ocr-file-input" accept="image/*" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;" onchange="handleRdOcrFileChange(event)">
+                                <i class="fa-solid fa-file-invoice" style="font-size: 24px; color: #a0aec0; margin-bottom: 8px;"></i>
+                                <p id="rd-ocr-drag-text" style="font-size: 13px; font-weight: 500; color: #4a5568; margin-bottom: 0;">클릭하거나 임대차 계약서 이미지를 여기에 놓으세요</p>
+                            </div>
+                        </div>
+
+                        <!-- 추가: 업로드 완료 후 이미지 및 돋보기/부분 AI 추출 영역 -->
+                        <div id="rd-ocr-preview-container" class="hidden" style="margin-top: 15px; border-top: 1px solid #edf2f7; padding-top: 15px; position: relative; text-align: left;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <span style="font-size: 12px; font-weight: 600; color: var(--primary-deep-navy);"><i class="fa-solid fa-image"></i> 첨부된 계약서 미리보기</span>
+                                <div style="display: flex; gap: 4px;">
+                                    <button type="button" id="btn-rd-mode-magnifier" class="btn btn-orange" onclick="setRdOcrMode('magnifier')" style="font-size: 11px; padding: 4px 8px;"><i class="fa-solid fa-magnifying-glass"></i> 돋보기</button>
+                                    <button type="button" id="btn-rd-mode-select" class="btn" onclick="setRdOcrMode('select')" style="font-size: 11px; padding: 4px 8px; background: #e2e8f0; color: #4a5568;"><i class="fa-solid fa-crop"></i> 부분 AI 추출</button>
+                                </div>
+                            </div>
+                            
+                            <div id="rd-ocr-image-wrapper" style="background: #ffffff; border: 1px solid #cbd5e0; border-radius: 8px; padding: 0; text-align: center; overflow: hidden; position: relative; user-select: none; display: flex; justify-content: center; align-items: center;">
+                                <img id="rd-ocr-preview-img" src="" alt="계약서 미리보기" style="max-width: 100%; max-height: 50vh; object-fit: contain; display: block; -webkit-user-drag: none;">
+                                <div id="rd-magnifier-lens" class="magnifier-lens"></div>
+                                <div id="rd-selection-box" class="selection-box"></div>
+                            </div>
+
+                            <div id="rd-extraction-popup" class="extraction-popup">
+                                <h5>선택 영역 텍스트 추출</h5>
+                                <div id="rd-extracted-text-preview" style="background: #f7fafc; border: 1px solid #e2e8f0; padding: 6px; border-radius: 4px; font-size: 11px; max-height: 60px; overflow-y: auto; margin-bottom: 8px; word-break: break-all; font-weight: bold; color: var(--primary-deep-navy);">
+                                    추출 중...
+                                </div>
+                                <div style="font-size: 10px; color: #718096; margin-bottom: 4px;">입력할 항목 선택:</div>
+                                <div style="max-height: 120px; overflow-y: auto;">
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-tenant-name')">세입자 이름</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-tenant-phone')">세입자 연락처</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-area')">면적 (㎡)</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-deposit')">보증금 (원)</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-monthly-rent')">월세 (원)</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-maintenance-fee')">관리비 (원)</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-cleaning-fee')">청소비 (원)</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-contract-date')">계약일</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-lease-start-date')">임대 시작일</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-lease-end-date')">임대 종료일</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-broker-agency')">중개사무소 명칭</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-broker-rep')">대표 공인중개사</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-broker-address')">소재지 (주소)</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-broker-phone')">대표 전화번호</button>
+                                    <button type="button" class="extraction-field-btn" onclick="applyRdSelectedText('rd-broker-reg-number')">등록 번호</button>
+                                </div>
+                                <button type="button" class="btn" style="width:100%; margin-top: 8px; padding: 4px; font-size: 11px; background: #e2e8f0; color: #4a5568;" onclick="closeRdExtractionPopup()">닫기</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h4 style="margin: 20px 0 10px 0; color: var(--primary-deep-navy); border-left: 4px solid var(--primary-light-blue); padding-left: 8px;">1. 호실 기본 정보</h4>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <div class="form-group">
+                            <label>호실 번호</label>
+                            <input type="text" id="rd-room-number" class="form-control" readonly style="background: #edf2f7;">
+                        </div>
+                        <div class="form-group">
+                            <label>호실 타입</label>
+                            <select id="rd-room-type" class="form-control">
+                                <option value="원룸">원룸</option>
+                                <option value="투룸">투룸</option>
+                                <option value="쓰리룸">쓰리룸</option>
+                                <option value="오피스텔">오피스텔</option>
+                                <option value="미지정">미지정</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <div class="form-group">
+                            <label>면적 (㎡)</label>
+                            <input type="number" step="0.01" id="rd-area" class="form-control" placeholder="예: 33.25">
+                        </div>
+                        <div class="form-group">
+                            <label>방 상태</label>
+                            <select id="rd-room-status" class="form-control">
+                                <option value="공실">공실</option>
+                                <option value="입주중">입주중</option>
+                                <option value="보수필요">보수필요</option>
+                                <option value="청소대기">청소대기</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <h4 style="margin: 30px 0 10px 0; color: var(--primary-deep-navy); border-left: 4px solid var(--primary-light-blue); padding-left: 8px;">2. 임차인 및 계약 정보</h4>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <div class="form-group">
+                            <label>세입자 이름</label>
+                            <input type="text" id="rd-tenant-name" class="form-control" placeholder="미등록">
+                        </div>
+                        <div class="form-group">
+                            <label>세입자 연락처</label>
+                            <input type="text" id="rd-tenant-phone" class="form-control" placeholder="예: 010-0000-0000">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>보증금 (원)</label>
+                            <input type="number" id="rd-deposit" class="form-control" placeholder="0">
+                        </div>
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>월세 (원)</label>
+                            <input type="number" id="rd-monthly-rent" class="form-control" placeholder="0">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <div class="form-group">
+                            <label>관리비 (원)</label>
+                            <input type="number" id="rd-maintenance-fee" class="form-control" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label>청소비 (원)</label>
+                            <input type="number" id="rd-cleaning-fee" class="form-control" placeholder="0">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                        <div class="form-group">
+                            <label>계약일</label>
+                            <input type="text" id="rd-contract-date" class="form-control" readonly placeholder="연도.월.일 클릭" style="cursor: pointer;" onclick="openCalendarModal('rd-contract-date')">
+                        </div>
+                        <div class="form-group">
+                            <label>임대 시작일</label>
+                            <input type="text" id="rd-lease-start-date" class="form-control" readonly placeholder="연도.월.일 클릭" style="cursor: pointer;" onclick="openCalendarModal('rd-lease-start-date')">
+                        </div>
+                        <div class="form-group">
+                            <label>임대 종료일</label>
+                            <input type="text" id="rd-lease-end-date" class="form-control" readonly placeholder="연도.월.일 클릭" style="cursor: pointer;" onclick="openCalendarModal('rd-lease-end-date')">
+                        </div>
+                    </div>
+
+                    <h4 style="margin: 30px 0 10px 0; color: var(--primary-deep-navy); border-left: 4px solid var(--primary-light-blue); padding-left: 8px;">3. 공인중개사 정보</h4>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <div class="form-group">
+                            <label>중개사무소 명칭</label>
+                            <input type="text" id="rd-broker-agency" class="form-control" placeholder="예: 대박공인중개사사무소">
+                        </div>
+                        <div class="form-group">
+                            <label>대표 공인중개사</label>
+                            <input type="text" id="rd-broker-rep" class="form-control" placeholder="예: 김중개">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>소재지 (주소)</label>
+                        <input type="text" id="rd-broker-address" class="form-control" readonly placeholder="클릭하여 주소 검색" style="cursor: pointer; background-color: #f8fafc;" onclick="execDaumPostcodeForBroker()">
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <div class="form-group">
+                            <label>대표 전화번호</label>
+                            <input type="text" id="rd-broker-phone" class="form-control" placeholder="예: 02-000-0000">
+                        </div>
+                        <div class="form-group">
+                            <label>등록 번호</label>
+                            <input type="text" id="rd-broker-reg-number" class="form-control" placeholder="예: 11110-202X-XXXXX">
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 15px; margin-top: 35px;">
+                        <button type="button" class="btn" style="flex: 1; justify-content: center; background: #e2e8f0; color: #4a5568;" onclick="showView('owner-app')">취소</button>
+                        <button type="button" class="btn btn-orange" style="flex: 2; justify-content: center;" onclick="saveRoomDetailEdit()">변경사항 저장</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -889,6 +1109,46 @@
             </div>
 
             <!-- 대시보드 내 건물 관리 리스트 영역 (제거됨) -->
+        </div>
+    </div>
+
+    <!-- 수동 임차인 추가 모달 -->
+    <div id="manual-tenant-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; overflow-y: auto;">
+        <div style="position: relative; margin: 40px auto; background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <h3 style="margin-bottom: 15px; color: var(--primary-deep-navy); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">임차인 수동 등록 (<span id="mt-room-display"></span>)</h3>
+            <p style="font-size: 13px; color: #718096; margin-bottom: 15px;">해당 호실에 거주할 임차인 정보를 수동으로 등록합니다.</p>
+            
+            <input type="hidden" id="mt-building-id">
+            <input type="hidden" id="mt-building-address">
+            <input type="hidden" id="mt-room-number">
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div class="form-group">
+                    <label>임차인 성함</label>
+                    <input type="text" id="mt-name" class="form-control" placeholder="예: 홍길동" required />
+                </div>
+                <div class="form-group">
+                    <label>연락처</label>
+                    <input type="text" id="mt-phone" class="form-control" placeholder="예: 010-1234-5678" />
+                </div>
+                <div class="form-group">
+                    <label>임대차 계약 시작일</label>
+                    <input type="text" id="mt-start" class="form-control" readonly placeholder="날짜 선택" onclick="openCalendarModal('mt-start')" style="cursor: pointer;" />
+                </div>
+                <div class="form-group">
+                    <label>임대차 계약 종료일</label>
+                    <input type="text" id="mt-end" class="form-control" readonly placeholder="날짜 선택" onclick="openCalendarModal('mt-end')" style="cursor: pointer;" />
+                </div>
+                <div class="form-group">
+                    <label>계약서 첨부 (선택)</label>
+                    <input type="file" id="mt-file" class="form-control" style="padding: 6px;" />
+                </div>
+            </div>
+
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button class="btn" style="flex: 1; background: #e2e8f0; color: #4a5568;" onclick="closeManualTenantModal()">취소</button>
+                <button class="btn btn-orange" style="flex: 1;" onclick="submitManualTenant()">저장</button>
+            </div>
         </div>
     </div>
 

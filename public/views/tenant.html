@@ -1,0 +1,95 @@
+<div id="tenant-app" class="hidden">
+        <nav class="navbar">
+            <div class="navbar-brand" style="cursor: pointer;" onclick="showView('main-app')">
+                <i class="fa-solid fa-house-chimney-window"></i>
+                <span>모두의 방 <span style="font-size:12px; color:var(--point-orange);">[안전 주거 케어]</span></span>
+            </div>
+            <div class="user-profile" style="position: relative;">
+                <button id="tenant-display-name" class="btn-logout" style="border:none; font-weight: 500; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="toggleTenantMenu(event)">
+                    이세입 님 <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
+                </button>
+                <div id="tenant-dropdown" class="dropdown-menu hidden" style="position: absolute; top: 100%; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: var(--card-shadow); padding: 8px 0; min-width: 150px; z-index: 1000; margin-top: 10px;">
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('main-app'); document.getElementById('tenant-dropdown').classList.add('hidden');">메인 페이지</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="goToDashboard(); document.getElementById('tenant-dropdown').classList.add('hidden');">대시보드</a>
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="showView('auth-page'); document.getElementById('tenant-dropdown').classList.add('hidden');">마이페이지</a>
+                    <hr style="margin: 5px 0; border: none; border-top: 1px solid #e2e8f0;">
+                    <a href="javascript:void(0)" class="dropdown-item" onclick="handleLogout()" style="color: #e53e3e;">로그아웃</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="main-container">
+            <!-- 미매칭 상태 뷰 -->
+            <div id="tenant-unmatched-view" class="dashboard-layout">
+                <div>
+                    <div class="card">
+                        <div class="card-title"><i class="fa-solid fa-bell"></i> 임대인 상향식 초대 (Bottom-Up)</div>
+                        <p style="font-size:13px; color:#718096; margin-bottom:15px;">
+                            임대인의 이름과 연락처를 입력해 하자 보수 소통방 개설을 요청하고 알림톡을 발송합니다.
+                        </p>
+                        <form onsubmit="handleSendInviteToOwner(event)">
+                            <div class="form-group">
+                                <label>임대인(집주인) 성함</label>
+                                <input type="text" id="invite-owner-name" class="form-control" placeholder="김임대" required>
+                            </div>
+                            <div class="form-group">
+                                <label>임대인 연락처</label>
+                                <input type="text" id="invite-owner-phone" class="form-control" placeholder="010-9876-5432" required>
+                            </div>
+                            <div class="form-group">
+                                <label>우리 집 호실</label>
+                                <input type="text" id="invite-room" class="form-control" placeholder="302호" required>
+                            </div>
+                            <button type="submit" class="btn btn-orange">임대인 초대 및 수리방 신청</button>
+                        </form>
+                    </div>
+                </div>
+                <div>
+                    <div class="card" style="opacity: 0.6; pointer-events: none;">
+                        <div class="card-title"><i class="fa-solid fa-wrench"></i> 나의 민원 신청하기</div>
+                        <p style="font-size:13px; color:#718096;">임대인 승인 완료 시 사진 한 장 비대면 즉시 접수 채널이 개통됩니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 매칭 상태 뷰 -->
+            <div id="tenant-matched-view" class="dashboard-layout hidden">
+                <div>
+                    <div class="card" style="border-top: 4px solid var(--primary-light-blue);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                            <div class="card-title" style="margin-bottom: 0;"><i class="fa-solid fa-file-signature"></i> 나의 계약 정보</div>
+                            <span style="background: #e6fffa; color: #319795; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid #b2f5ea;">
+                                채널 개통 완료
+                            </span>
+                        </div>
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px;">
+                            <p style="margin-bottom: 8px;"><b>임대인 성함:</b> <span id="matched-owner-name"></span></p>
+                            <p style="margin-bottom: 8px;"><b>임대인 연락처:</b> <span id="matched-owner-phone"></span></p>
+                            <p style="margin-bottom: 0;"><b>내 방 호실:</b> <span id="matched-room" style="color: var(--primary-deep-navy); font-weight: bold;"></span></p>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <div class="card">
+                        <div class="card-title"><i class="fa-solid fa-wrench"></i> 나의 민원 신청하기</div>
+                        <p style="font-size:13px; color:#718096; margin-bottom: 15px;">사진과 함께 내용을 입력하여 즉시 비대면 접수하세요.</p>
+                        <form onsubmit="handleComplaintSubmit(event)">
+                            <div class="form-group">
+                                <label>제목</label>
+                                <input type="text" id="complaint-title" class="form-control" placeholder="예: 화장실 문 손잡이 고장" required>
+                            </div>
+                            <div class="form-group">
+                                <label>상세 내용</label>
+                                <textarea id="complaint-desc" class="form-control" rows="3" placeholder="문제 상황을 상세히 적어주세요." required style="resize: none;"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>사진 첨부</label>
+                                <input type="file" class="form-control" style="padding: 6px;">
+                            </div>
+                            <button type="submit" class="btn btn-orange">민원 접수하기</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
