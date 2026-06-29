@@ -9,7 +9,7 @@
     <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/style.css?v=20260629_2">
 </head>
 <body>
 
@@ -872,6 +872,7 @@
                     <input type="hidden" id="rd-building-idx">
                     <input type="hidden" id="rd-room-idx">
                     <input type="hidden" id="rd-contract-id">
+                    <input type="hidden" id="rd-broker-id">
 
                     <!-- 계약서 AI 분석 및 자동 입력 영역 -->
                     <div style="background-color: #f7fafc; border: 1px dashed #cbd5e0; border-radius: 12px; padding: 20px; margin-bottom: 25px; text-align: center;">
@@ -1044,7 +1045,7 @@
 
                     <div style="display: flex; gap: 15px; margin-top: 35px;">
                         <button type="button" class="btn" style="flex: 1; justify-content: center; background: #e2e8f0; color: #4a5568;" onclick="showView('owner-app')">취소</button>
-                        <button type="button" class="btn btn-orange" style="flex: 2; justify-content: center;" onclick="saveRoomDetailEdit()">변경사항 저장</button>
+                        <button type="button" id="btn-save-room-detail" class="btn btn-orange" style="flex: 2; justify-content: center;" onclick="saveRoomDetailEdit()" disabled>변경사항 저장</button>
                     </div>
                 </form>
             </div>
@@ -1196,7 +1197,8 @@
     <!-- 달력 모달 -->
     <div id="calendar-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;" onclick="if(event.target === this) closeCalendarModal()">
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 320px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <button type="button" onclick="closeCalendarModal()" style="position: absolute; top: 8px; right: 12px; background: none; border: none; font-size: 18px; color: #a0aec0; cursor: pointer; font-weight: bold; padding: 4px; line-height: 1;">&times;</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-right: 15px;">
                 <button class="btn" style="padding: 4px 8px; font-size: 14px;" onclick="changeCalendarRange(-1)">&lt;</button>
                 <div id="calendar-month-year" style="display: flex; gap: 4px; align-items: center;"></div>
                 <button class="btn" style="padding: 4px 8px; font-size: 14px;" onclick="changeCalendarRange(1)">&gt;</button>
@@ -1208,7 +1210,7 @@
             </div>
             <div id="calendar-today-display" style="text-align: center; margin-top: 10px; font-size: 12px; color: #718096;"></div>
             <div style="margin-top: 10px; display: flex; gap: 10px;">
-                <button class="btn" style="flex: 1; background: #e2e8f0; color: #4a5568;" onclick="clearCalendarDate()">취소</button>
+                <button class="btn" style="flex: 1; background: #e2e8f0; color: #4a5568;" onclick="clearCalendarDate()">초기화</button>
                 <button class="btn" style="flex: 1; background: var(--primary-light-blue); color: white; border: none;" onclick="resetCalendarToToday()">오늘</button>
             </div>
         </div>
@@ -1274,6 +1276,6 @@
         </div>
     </div>
 
-    <script src="/js/app.js"></script>
+    <script src="/js/app.js?v=20260629_6"></script>
 </body>
 </html>

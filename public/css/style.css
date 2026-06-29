@@ -269,6 +269,12 @@
 
         .btn:hover { opacity: 0.95; }
         .btn-orange { background-color: var(--point-orange); }
+        .btn:disabled {
+            background-color: #cbd5e0 !important;
+            color: #718096 !important;
+            cursor: not-allowed !important;
+            opacity: 0.8 !important;
+        }
 
         .inventory-list {
             display: flex;

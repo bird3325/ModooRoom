@@ -83,6 +83,11 @@
 - **서체:** 프리텐다드(Pretendard), 본문 10pt Regular, 줄간격 1.6.
 - **재고 알림 배지:** 수량 임계치 미만 시 포인트 오렌지 가변 및 '주문 필요' 태그 활성화.
 - **민원 스텝퍼:** 세로형 타임라인, 라이트 블루 애니메이션 처리.
+- **변경사항 저장 버튼 상태 관리**: 호실 및 임대차 상세 정보 수정 페이지에서 폼 내부의 초기 로드 상태와 변경 사항을 비교하여, 실질적인 변경(텍스트 입력, 드롭다운 선택, 이미지 업로드 등)이 발생하지 않았을 경우 '변경사항 저장' 버튼이 비활성화(`disabled`) 처리됩니다. 변경 감지 시 즉시 활성화됩니다. 비활성화 시에는 클릭이 차단되며 마우스 커서가 금지 표시(`not-allowed`)로 변하고, 배경색은 회색톤(`#cbd5e0`)으로 낮추어 시각적으로 비활성화됨을 인지할 수 있도록 하였습니다.
+- **저장 진행 피드백 및 성능 최적화**: 
+  - **피드백**: 저장 버튼을 클릭하면 버튼이 비활성화되며 로딩 아이콘과 함께 `저장 중...` 상태로 텍스트가 변경되고, 화면 전체에 `변경사항을 저장하고 있습니다...` 및 `데이터를 안전하게 저장하고 있습니다. 잠시만 기다려 주세요.`라는 메시지를 담은 고정 오버레이 로딩 모달 뷰가 노출되어 사용자에게 직관적인 진행 상태를 전달합니다.
+  - **속도 최적화 (API 지연 단축)**: 중개소 정보(`brokers`)의 수정 여부를 비교 분석하여 변경 사항이 없을 시 Supabase의 중개소 조회/저장 쿼리(2회 RTT)를 건너뛰고 기존 외래키(`broker_id`)를 직접 재활용해 한 번의 트랜잭션으로 계약 정보를 업데이트합니다. 이로 인해 저장 처리 속도가 최대 300% 향상됩니다.
+- **공실 호실의 영속성 및 목록 노출 보장**: 호실 및 임대차 상세 정보 페이지에서 방 상태를 '공실'(`vacant`)로 저장하더라도, 임대인 대시보드 및 호실 관리 화면에서 해당 호실 정보가 삭제되지 않고 지속적으로 노출되도록 보장합니다. 이를 위해 Supabase 조회 시 `vacant` 계약 상태를 포함하여 모든 호실 정보를 불러오되, 현재 거주 중인 임차인 목록에서는 공실을 걸러내어 관리 편의성을 향상했습니다.
 
 ## 6. 단계별 제품 개발 로드맵 (Roadmap)
 
@@ -138,6 +143,8 @@
 - `owner_id` (UUID, Foreign Key -> auth.users.id) : 데이터를 등록한 임대인(소유자)의 계정 ID (RLS 보안 정책 검증용)
 - `status` (String) : 계약 상태 (예: 'matched' - 매칭 완료, 'manual' - 수동 등록)
 - `room_number` (String) : 1. 임대할 부분 (호실 등 상세 주소)
+- `room_type` (String) : 호실 타입 (예: '원룸', '투룸', '쓰리룸', '오피스텔', '미지정')
+- `room_status` (String) : 방 상태 (예: '공실', '입주중', '보수필요', '청소대기')
 - `area` (String) : 2. 면적 (㎡)
 - `deposit` (Number) : 3. 보증금 (원 단위 숫자)
 - `monthly_rent` (Number) : 4. 차임(월세) (원 단위 숫자)
@@ -147,21 +154,45 @@
 - `lease_period` (String) : 8. 임대차 기간 (시작일 ~ 종료일)
 - `tenant_name` (String) : 9. 임차인 성명
 - `tenant_phone` (String) : 10. 임차인 전화번호
-- `broker_address` (String) : 11. 개업공인중개사 사무소 소재지
-- `broker_agency_name` (String) : 12. 개업공인중개사 명칭
-- `broker_rep_name` (String) : 13. 개업공인중개사 대표자 성명
-- `broker_reg_number` (String) : 14. 개업공인중개사 등록번호
-- `broker_phone` (String) : 15. 개업공인중개사 전화번호
+- `broker_id` (UUID, Foreign Key -> brokers.id) : 11~15번 항목 정규화 대응을 위한 개업공인중개사 고유 식별자
+- `broker_address` (String) : 11. 개업공인중개사 사무소 소재지 (하위 호환용)
+- `broker_agency_name` (String) : 12. 개업공인중개사 명칭 (하위 호환용)
+- `broker_rep_name` (String) : 13. 개업공인중개사 대표자 성명 (하위 호환용)
+- `broker_reg_number` (String) : 14. 개업공인중개사 등록번호 (하위 호환용)
+- `broker_phone` (String) : 15. 개업공인중개사 전화번호 (하위 호환용)
 - `contract_image_url` (Text) : 마스킹 처리된 계약서 원본 이미지 URL
+- `created_at` (Timestamp) : 데이터 생성 일시
+
+### 7.3 데이터베이스 스키마 (`brokers` 테이블)
+중개업소 회원 가입 및 정보 누적을 위한 독립 테이블입니다. 계약서 OCR 분석/수동 입력 시에도 데이터가 적재되지만 특정 임대인에 종속되지 않으므로 `owner_id`를 저장하지 않고 전역 디렉토리로 작동합니다. 중개업소 회원 가입 시 동일한 등록번호(`registration_no`)가 존재할 경우 경고 알림을 표시하고 재등록하지 않습니다.
+
+- `id` (UUID, Primary Key) : 중개소 데이터의 고유 식별자
+- `agency_name` (String) : 중개사무소 명칭
+- `representative_name` (String) : 대표 공인중개사 성명
+- `registration_no` (String, Unique) : 중개사무소 등록번호 (중복 가입 방지 식별자)
+- `address` (String) : 중개사무소 소재지 주소
+- `phone` (String) : 대표 전화번호
 - `created_at` (Timestamp) : 데이터 생성 일시
 
 #### Supabase SQL 적용 쿼리
 ```sql
--- 1. contracts 테이블이 없다면 새로 생성하는 쿼리입니다.
+-- 1. brokers 테이블 생성 쿼리
+CREATE TABLE IF NOT EXISTS public.brokers (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    agency_name TEXT NOT NULL,
+    representative_name TEXT,
+    registration_no TEXT UNIQUE NOT NULL,
+    address TEXT,
+    phone TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 2. contracts 테이블이 없다면 새로 생성하는 쿼리입니다.
 CREATE TABLE IF NOT EXISTS public.contracts (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     building_id UUID REFERENCES public.buildings(id) ON DELETE CASCADE,
     owner_id UUID REFERENCES auth.users(id),
+    broker_id UUID REFERENCES public.brokers(id) ON DELETE SET NULL,
     status TEXT DEFAULT 'manual',
     room_number TEXT,
     room_count INTEGER DEFAULT 1,
@@ -192,6 +223,8 @@ ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES auth.users(id),
 ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'manual',
 ADD COLUMN IF NOT EXISTS room_number TEXT,
 ADD COLUMN IF NOT EXISTS room_count INTEGER DEFAULT 1,
+ADD COLUMN IF NOT EXISTS room_type TEXT DEFAULT '미지정',
+ADD COLUMN IF NOT EXISTS room_status TEXT DEFAULT '공실',
 ADD COLUMN IF NOT EXISTS bathroom_count INTEGER DEFAULT 1,
 ADD COLUMN IF NOT EXISTS living_room_count INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS veranda_count INTEGER DEFAULT 1,

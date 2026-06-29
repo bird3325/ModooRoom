@@ -415,7 +415,7 @@ async function submitManualTenant() {
                         tenant_phone: tPhone,
                         start_date: sDate || null,
                         end_date: eDate || null,
-                        contract_url: fileBase64 // 단순 텍스트 컬럼에 임시 저장
+                        contract_image_url: fileBase64 // 단순 텍스트 컬럼에 임시 저장
                     };
 
                     const { error } = await supabaseClient.from('contracts').insert([payload]);
@@ -1382,7 +1382,6 @@ async function saveRoomDetailEdit() {
                         const { data: newBroker, error: insertErr } = await supabaseClient
                             .from('brokers')
                             .insert([{
-                                owner_id: session.user.id,
                                 agency_name: brokerAgency || '공인중개사사무소',
                                 representative_name: brokerRep,
                                 registration_no: brokerRegNumber.trim(),
