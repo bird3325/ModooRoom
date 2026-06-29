@@ -407,7 +407,6 @@ async function submitManualTenant() {
                     }
 
                     const payload = {
-                        owner_id: session.user.id,
                         building_id: bId,
                         room_number: rNum,
                         status: 'manual',
@@ -584,7 +583,6 @@ async function addRoomFromPage(idx) {
                     if (session) {
                         const { error } = await supabaseClient.from('contracts').insert([{
                             building_id: b.id,
-                            owner_id: session.user.id,
                             status: 'manual',
                             room_number: num,
                             room_count: type === '투룸' ? 2 : 1,
@@ -854,6 +852,8 @@ async function openRoomDetailPage(bIdx, rIdx) {
     document.getElementById('rd-room-number').value = r.roomNumber;
     document.getElementById('rd-room-type').value = r.type || '미지정';
     document.getElementById('rd-contract-id').value = '';
+    document.getElementById('rd-floor-type').value = '지상';
+    document.getElementById('rd-floor-no').value = '';
     document.getElementById('rd-area').value = '';
     document.getElementById('rd-room-status').value = '공실';
     document.getElementById('rd-tenant-name').value = '';
@@ -886,6 +886,8 @@ async function openRoomDetailPage(bIdx, rIdx) {
                     room: data.room_number,
                     area: data.area,
                     status: data.status,
+                    floorType: data.floor_type || '지상',
+                    floorNo: data.floor_no || '',
                     tenantName: data.tenant_name,
                     tenantPhone: data.tenant_phone,
                     deposit: data.deposit,
@@ -916,6 +918,8 @@ async function openRoomDetailPage(bIdx, rIdx) {
 
     if (matched) {
         document.getElementById('rd-contract-id').value = matched.id || '';
+        document.getElementById('rd-floor-type').value = matched.floorType || matched.floor_type || '지상';
+        document.getElementById('rd-floor-no').value = matched.floorNo || matched.floor_no || '';
         document.getElementById('rd-area').value = matched.area || '';
         document.getElementById('rd-room-status').value = (matched.status !== 'vacant') ? '입주중' : '공실';
 
@@ -1332,6 +1336,8 @@ async function saveRoomDetailEdit() {
     if (!r) return;
 
     const roomType = document.getElementById('rd-room-type').value;
+    const floorType = document.getElementById('rd-floor-type').value;
+    const floorNo = document.getElementById('rd-floor-no').value.trim();
     const area = parseFloat(document.getElementById('rd-area').value) || null;
     const roomStatus = document.getElementById('rd-room-status').value;
 
@@ -1353,6 +1359,8 @@ async function saveRoomDetailEdit() {
     const brokerRegNumber = document.getElementById('rd-broker-reg-number').value;
 
     r.type = roomType;
+    r.floor_type = floorType;
+    r.floor_no = floorNo;
 
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
         try {
@@ -1405,6 +1413,8 @@ async function saveRoomDetailEdit() {
                 const { error } = await supabaseClient.from('contracts')
                     .update({
                         room_count: roomType === '투룸' ? 2 : 1,
+                        floor_type: floorType,
+                        floor_no: floorNo,
                         area: area,
                         tenant_name: tenantName || '이름 없음',
                         tenant_phone: tenantPhone,
@@ -1416,12 +1426,6 @@ async function saveRoomDetailEdit() {
                         lease_start_date: leaseStartDate || null,
                         lease_end_date: leaseEndDate || null,
                         broker_id: brokerId,
-                        // 하위 호환
-                        broker_agency_name: brokerAgency,
-                        broker_rep_name: brokerRep,
-                        broker_address: brokerAddress,
-                        broker_phone: brokerPhone,
-                        broker_reg_number: brokerRegNumber,
                         status: (roomStatus === '입주중' ? 'manual' : 'vacant')
                     })
                     .eq('id', contractId);
@@ -1434,9 +1438,10 @@ async function saveRoomDetailEdit() {
                 const { error } = await supabaseClient.from('contracts')
                     .insert([{
                         building_id: b.id,
-                        owner_id: session.user.id,
                         room_number: r.roomNumber,
                         room_count: roomType === '투룸' ? 2 : 1,
+                        floor_type: floorType,
+                        floor_no: floorNo,
                         area: area,
                         tenant_name: tenantName || '이름 없음',
                         tenant_phone: tenantPhone,
@@ -1448,12 +1453,6 @@ async function saveRoomDetailEdit() {
                         lease_start_date: leaseStartDate || null,
                         lease_end_date: leaseEndDate || null,
                         broker_id: brokerId,
-                        // 하위 호환
-                        broker_agency_name: brokerAgency,
-                        broker_rep_name: brokerRep,
-                        broker_address: brokerAddress,
-                        broker_phone: brokerPhone,
-                        broker_reg_number: brokerRegNumber,
                         status: (roomStatus === '입주중' ? 'manual' : 'vacant')
                     }]);
                 if (error) {

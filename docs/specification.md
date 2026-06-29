@@ -214,6 +214,8 @@ CREATE TABLE IF NOT EXISTS public.contracts (
     broker_reg_number TEXT,
     broker_phone TEXT,
     contract_image_url TEXT,
+    floor_type TEXT DEFAULT '지상',
+    floor_no TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -242,7 +244,9 @@ ADD COLUMN IF NOT EXISTS broker_agency_name TEXT,
 ADD COLUMN IF NOT EXISTS broker_rep_name TEXT,
 ADD COLUMN IF NOT EXISTS broker_reg_number TEXT,
 ADD COLUMN IF NOT EXISTS broker_phone TEXT,
-ADD COLUMN IF NOT EXISTS contract_image_url TEXT;
+ADD COLUMN IF NOT EXISTS contract_image_url TEXT,
+ADD COLUMN IF NOT EXISTS floor_type TEXT DEFAULT '지상',
+ADD COLUMN IF NOT EXISTS floor_no TEXT;
 
 -- 3. 안전한 RLS(Row Level Security) 정책을 켜고 설정합니다.
 ALTER TABLE public.contracts ENABLE ROW LEVEL SECURITY;

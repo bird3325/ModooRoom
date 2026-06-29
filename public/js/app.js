@@ -7,6 +7,8 @@
         function getRoomDetailFormState() {
             return {
                 roomType: document.getElementById('rd-room-type') ? document.getElementById('rd-room-type').value : '',
+                floorType: document.getElementById('rd-floor-type') ? document.getElementById('rd-floor-type').value : '지상',
+                floorNo: document.getElementById('rd-floor-no') ? document.getElementById('rd-floor-no').value.trim() : '',
                 area: document.getElementById('rd-area') ? document.getElementById('rd-area').value : '',
                 roomStatus: document.getElementById('rd-room-status') ? document.getElementById('rd-room-status').value : '',
                 tenantName: document.getElementById('rd-tenant-name') ? document.getElementById('rd-tenant-name').value.trim() : '',
@@ -976,7 +978,6 @@
                                 if (result.extractedTenant) {
                                     const tenantInsertData = {
                                         building_id: targetBuildingId,
-                                        owner_id: session.user.id,
                                         address: bAddr,
                                         room: result.extractedTenant.room,
                                         tenant_name: result.extractedTenant.name
@@ -1378,7 +1379,6 @@
                     }
 
                     const payload = {
-                        owner_id: session.user.id,
                         building_id: bId,
                         room_number: rNum,
                         room_type: '미지정',
@@ -1522,7 +1522,6 @@
                     if (session) {
                         const { data, error } = await supabaseClient.from('contracts').insert([{
                             building_id: b.id,
-                            owner_id: session.user.id,
                             status: 'manual',
                             room_number: num,
                             room_count: type === '투룸' ? 2 : 1,
@@ -1681,6 +1680,8 @@
                 document.getElementById('rd-room-type').value = r.type || '미지정';
                 document.getElementById('rd-contract-id').value = '';
                 document.getElementById('rd-broker-id').value = '';
+                document.getElementById('rd-floor-type').value = '지상';
+                document.getElementById('rd-floor-no').value = '';
                 document.getElementById('rd-area').value = '';
                 document.getElementById('rd-room-status').value = '공실';
                 document.getElementById('rd-tenant-name').value = '';
@@ -1725,6 +1726,8 @@
                                 roomType: data.room_type,
                                 roomStatus: data.room_status,
                                 area: data.area,
+                                floorType: data.floor_type || '지상',
+                                floorNo: data.floor_no || '',
                                 status: data.status,
                                 tenantName: data.tenant_name,
                                 tenantPhone: data.tenant_phone,
@@ -1762,6 +1765,8 @@
                     if (matched.roomType || matched.room_type) {
                         document.getElementById('rd-room-type').value = matched.roomType || matched.room_type;
                     }
+                    document.getElementById('rd-floor-type').value = matched.floorType || matched.floor_type || '지상';
+                    document.getElementById('rd-floor-no').value = matched.floorNo || matched.floor_no || '';
                     document.getElementById('rd-area').value = matched.area || '';
                     document.getElementById('rd-room-status').value = matched.roomStatus || matched.room_status || ((matched.status !== 'vacant') ? '입주중' : '공실');
 
@@ -2010,7 +2015,6 @@
 
                                             const newContractPayload = {
                                                 building_id: b.id,
-                                                owner_id: session.user.id,
                                                 room_number: extractedRoomNum,
                                                 room_count: data.ocr_room_type === '투룸' ? 2 : 1,
                                                 room_type: data.ocr_room_type || '원룸',
@@ -2026,12 +2030,6 @@
                                                 lease_start_date: data.ocr_lease_start_date ? data.ocr_lease_start_date.replace(/-/g, '.') : null,
                                                 lease_end_date: data.ocr_lease_end_date ? data.ocr_lease_end_date.replace(/-/g, '.') : null,
                                                 broker_id: brokerId,
-                                                // 하위 호환
-                                                broker_agency_name: data.ocr_broker_agency_name,
-                                                broker_rep_name: data.ocr_broker_representative,
-                                                broker_address: data.ocr_broker_address,
-                                                broker_phone: data.ocr_broker_phone,
-                                                broker_reg_number: data.ocr_broker_registration_no,
                                                 status: 'manual'
                                             };
                                             
@@ -2471,6 +2469,8 @@
                 }
 
                 const roomType = document.getElementById('rd-room-type').value;
+                const floorType = document.getElementById('rd-floor-type').value;
+                const floorNo = document.getElementById('rd-floor-no').value.trim();
                 const area = parseFloat(document.getElementById('rd-area').value) || null;
                 const roomStatus = document.getElementById('rd-room-status').value;
 
@@ -2493,6 +2493,8 @@
 
                 // 로컬 구조 변경
                 r.type = roomType;
+                r.floor_type = floorType;
+                r.floor_no = floorNo;
 
                 if (typeof supabaseClient !== 'undefined' && supabaseClient) {
                     const sessionData = await supabaseClient.auth.getSession();
@@ -2559,6 +2561,8 @@
                         const updatePayload = {
                             room_count: roomType === '투룸' ? 2 : 1,
                             room_type: roomType,
+                            floor_type: floorType,
+                            floor_no: floorNo,
                             room_status: roomStatus,
                             area: area,
                             tenant_name: tenantName || '이름 없음',
@@ -2571,12 +2575,6 @@
                             lease_start_date: leaseStartDate || null,
                             lease_end_date: leaseEndDate || null,
                             broker_id: brokerId,
-                            // 하위 호환을 위해 기존 필드값도 일단 함께 저장
-                            broker_agency_name: brokerAgency,
-                            broker_rep_name: brokerRep,
-                            broker_address: brokerAddress,
-                            broker_phone: brokerPhone,
-                            broker_reg_number: brokerRegNumber,
                             status: (roomStatus === '입주중' ? 'manual' : 'vacant')
                         };
                         if (newContractImg) {
@@ -2596,10 +2594,11 @@
                         // 새 계약 생성
                         const insertPayload = {
                             building_id: b.id,
-                            owner_id: session.user.id,
                             room_number: r.roomNumber,
                             room_count: roomType === '투룸' ? 2 : 1,
                             room_type: roomType,
+                            floor_type: floorType,
+                            floor_no: floorNo,
                             room_status: roomStatus,
                             area: area,
                             tenant_name: tenantName || '이름 없음',
@@ -2612,12 +2611,6 @@
                             lease_start_date: leaseStartDate || null,
                             lease_end_date: leaseEndDate || null,
                             broker_id: brokerId,
-                            // 하위 호환을 위해 기존 필드값도 함께 저장
-                            broker_agency_name: brokerAgency,
-                            broker_rep_name: brokerRep,
-                            broker_address: brokerAddress,
-                            broker_phone: brokerPhone,
-                            broker_reg_number: brokerRegNumber,
                             status: (roomStatus === '입주중' ? 'manual' : 'vacant')
                         };
                         if (newContractImg) {
@@ -2744,7 +2737,7 @@
                 } catch(e) { console.error(e); }
             }
 
-            const data = (activeTenantsData || []).filter(function(d) { return d.status !== 'vacant'; });
+            const data = (activeTenantsData || []).filter(function(d) { return d.roomStatus === '입주중'; });
             const section = document.getElementById('active-tenants-section');
             if (data.length === 0) {
                 section.innerHTML = '';
@@ -2754,11 +2747,11 @@
                 '<div class="card-title" style="margin-bottom: 15px;"><i class="fa-solid fa-users"></i> 현재 관리 중인 임차인</div>' +
                 '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">' +
                 data.map(function(m) {
-                    const manualBadge = m.isManual ? '<span style="font-size: 10px; background: #ed8936; color: white; padding: 2px 4px; border-radius: 4px; margin-left: 4px;">수동등록</span>' : '';
+                    const phoneInfo = m.tenantPhone ? '<div style="font-size: 12px; color: #718096; margin-top: 4px;">' + m.tenantPhone + '</div>' : '';
                     return '<div style="padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">' +
                         '<div>' +
-                        '<div style="font-size: 14px; font-weight: bold; color: var(--primary-deep-navy);">' + m.tenantName + manualBadge + ' <span style="font-size: 11px; font-weight: normal; background: #bee3f8; color: #2b6cb0; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">' + m.room + '</span></div>' +
-                        '<div style="font-size: 12px; color: #718096; margin-top: 4px;">상태: 안전 거주 중</div>' +
+                        '<div style="font-size: 14px; font-weight: bold; color: var(--primary-deep-navy);"><span style="font-size: 11px; font-weight: bold; background: #bee3f8; color: #2b6cb0; padding: 2px 6px; border-radius: 4px; margin-right: 6px;">' + m.room + '</span>' + m.tenantName + '</div>' +
+                        phoneInfo +
                         '</div>' +
                         '<button class="btn" style="padding: 6px 12px; font-size: 12px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="showModalAlert(&quot;채널 연결 준비 중입니다.&quot;)">메시지</button>' +
                     '</div>';
@@ -3948,7 +3941,6 @@ async function submitExtractedContract(event) {
                     .from('contracts')
                     .insert([{
                         building_id: buildingId,
-                        owner_id: session.user.id,
                         status: 'matched',
                         room_number: contractData['ocr_room_number'],
                         room_count: contractData['ocr_room_count'],

@@ -60,7 +60,9 @@ async function loadActiveTenants() {
                                 tenantName: d.tenant_name || '이름 없음',
                                 room: d.room_number,
                                 address: d.address,
-                                isManual: d.status === 'manual'
+                                isManual: d.status === 'manual',
+                                roomStatus: d.room_status || '공실',
+                                tenantPhone: d.tenant_phone || ''
                             }));
                         }
                     }
@@ -74,7 +76,7 @@ async function loadActiveTenants() {
                 } catch(e) { console.error(e); }
             }
 
-            const data = activeTenantsData || [];
+            const data = (activeTenantsData || []).filter(function(d) { return d.roomStatus === '입주중'; });
             const section = document.getElementById('active-tenants-section');
             if (data.length === 0) {
                 section.innerHTML = '';
@@ -84,11 +86,11 @@ async function loadActiveTenants() {
                 '<div class="card-title" style="margin-bottom: 15px;"><i class="fa-solid fa-users"></i> 현재 관리 중인 임차인</div>' +
                 '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">' +
                 data.map(function(m) {
-                    const manualBadge = m.isManual ? '<span style="font-size: 10px; background: #ed8936; color: white; padding: 2px 4px; border-radius: 4px; margin-left: 4px;">수동등록</span>' : '';
+                    const phoneInfo = m.tenantPhone ? '<div style="font-size: 12px; color: #718096; margin-top: 4px;">' + m.tenantPhone + '</div>' : '';
                     return '<div style="padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">' +
                         '<div>' +
-                        '<div style="font-size: 14px; font-weight: bold; color: var(--primary-deep-navy);">' + m.tenantName + manualBadge + ' <span style="font-size: 11px; font-weight: normal; background: #bee3f8; color: #2b6cb0; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">' + m.room + '</span></div>' +
-                        '<div style="font-size: 12px; color: #718096; margin-top: 4px;">상태: 안전 거주 중</div>' +
+                        '<div style="font-size: 14px; font-weight: bold; color: var(--primary-deep-navy);"><span style="font-size: 11px; font-weight: bold; background: #bee3f8; color: #2b6cb0; padding: 2px 6px; border-radius: 4px; margin-right: 6px;">' + m.room + '</span>' + m.tenantName + '</div>' +
+                        phoneInfo +
                         '</div>' +
                         '<button class="btn" style="padding: 6px 12px; font-size: 12px; background: white; border: 1px solid #cbd5e0; color: #4a5568;" onclick="showModalAlert(&quot;채널 연결 준비 중입니다.&quot;)">메시지</button>' +
                     '</div>';
