@@ -25,7 +25,11 @@
                 brokerAddress: document.getElementById('rd-broker-address') ? document.getElementById('rd-broker-address').value : '',
                 brokerPhone: document.getElementById('rd-broker-phone') ? document.getElementById('rd-broker-phone').value : '',
                 brokerRegNumber: document.getElementById('rd-broker-reg-number') ? document.getElementById('rd-broker-reg-number').value : '',
-                previewImgSrc: document.getElementById('rd-ocr-preview-img') ? (document.getElementById('rd-ocr-preview-img').getAttribute('src') || '') : ''
+                previewImgSrc: document.getElementById('rd-ocr-preview-img') ? (document.getElementById('rd-ocr-preview-img').getAttribute('src') || '') : '',
+                roomCount: document.getElementById('rd-room-count') ? document.getElementById('rd-room-count').value : '',
+                bathroomCount: document.getElementById('rd-bathroom-count') ? document.getElementById('rd-bathroom-count').value : '',
+                livingRoomCount: document.getElementById('rd-living-room-count') ? document.getElementById('rd-living-room-count').value : '',
+                verandaCount: document.getElementById('rd-veranda-count') ? document.getElementById('rd-veranda-count').value : ''
             };
         }
 
@@ -967,26 +971,8 @@
                                 }
                             }
                             
-                            // 2차 인증 성공 시, 자동으로 AI 상세 분석을 구동하고 원래 있던 "호실 및 임대차 상세 정보 수정" 페이지로 이동합니다.
-                            document.getElementById('loading-view').querySelector('h3').innerText = 'AI 모델을 통해 계약서 데이터를 상세 추출 중입니다...';
-                            
-                            let extractedData = null;
-                            try {
-                                const geminiRes = await fetch('/api/gemini-extract', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        imageBase64: base64Data,
-                                        apiKey: await getGeminiApiKey()
-                                    })
-                                });
-                                const geminiResult = await geminiRes.json();
-                                if (geminiRes.ok && geminiResult.success) {
-                                    extractedData = geminiResult.data;
-                                }
-                            } catch (geminiErr) {
-                                console.error('Gemini extraction error:', geminiErr);
-                            }
+                            // 2차 인증 성공 시, 곧바로 호실 및 임대차 상세 정보 수정 페이지로 이동한 뒤 페이지 내에서 AI 추출이 진행되도록 합니다.
+                            document.getElementById('loading-view').classList.add('hidden');
 
                             // 로컬 캐시 빌딩 정보 확인 및 갱신
                             if (!ownerBuildings) ownerBuildings = [];
@@ -1005,12 +991,9 @@
                                 ownerBuildings[bIdx].is_verified = true;
                             }
 
-                            // 추출한 호실 번호 확인
+                            // 추출한 호실 번호 확인 (2차 인증 OCR 결과인 result.extractedTenant 정보 우선 활용)
                             let roomNum = '101호';
-                            if (extractedData && extractedData.ocr_room_number) {
-                                roomNum = extractedData.ocr_room_number;
-                                if (!roomNum.endsWith('호')) roomNum += '호';
-                            } else if (result.extractedTenant && result.extractedTenant.room && result.extractedTenant.room !== '미지정') {
+                            if (result.extractedTenant && result.extractedTenant.room && result.extractedTenant.room !== '미지정') {
                                 roomNum = result.extractedTenant.room;
                                 if (!roomNum.endsWith('호')) roomNum += '호';
                             }
@@ -1027,13 +1010,39 @@
                                 rIdx = ownerBuildings[bIdx].rooms.length - 1;
                             }
 
-                            document.getElementById('loading-view').classList.add('hidden');
-                            document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
+                            // 중복 계약서 검증 (이미지 또는 동일 건물/호실 중복 방지)
+                            if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+                                // 1. 이미지 데이터 중복 체크
+                                const { data: existingImg, error: imgErr } = await supabaseClient
+                                    .from('contracts')
+                                    .select('id')
+                                    .eq('contract_image_url', base64Data)
+                                    .maybeSingle();
+                                
+                                if (!imgErr && existingImg) {
+                                    document.getElementById('loading-view').classList.add('hidden');
+                                    showModalAlert('동일한 계약서 이미지가 이미 시스템에 존재합니다.');
+                                    return;
+                                }
 
-                            // 원래 있던 호실 상세 정보 페이지 호출
-                            await openRoomDetailPage(bIdx, rIdx, extractedData, base64Data);
+                                // 2. 해당 건물 및 호실 계약 중복 체크
+                                const { data: existingContract, error: checkError } = await supabaseClient
+                                    .from('contracts')
+                                    .select('id')
+                                    .eq('building_id', targetBuildingId)
+                                    .eq('room_number', roomNum)
+                                    .maybeSingle();
+
+                                if (!checkError && existingContract) {
+                                    document.getElementById('loading-view').classList.add('hidden');
+                                    showModalAlert('해당 호실에 계약서가 이미 등록되어 존재합니다.');
+                                    return;
+                                }
+                            }
+
+                            // 원래 있던 호실 상세 정보 페이지 바로 호출 (AI 추출은 페이지 내에서 진행하도록 null 전달)
                             markUserVerified();
-                            showModalAlert('계약서 인증 및 AI 정보 추출이 성공적으로 완료되었습니다!\n상세 정보 확인 후 아래의 [변경사항 저장] 버튼을 눌러주세요.');
+                            await openRoomDetailPage(bIdx, rIdx, null, base64Data);
                         } else {
                             document.getElementById('loading-view').classList.add('hidden');
                             document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
@@ -1204,6 +1213,51 @@
                        roomsHtml +
                        '</div>';
             }).join('');
+            updateOwnerDashboardStats();
+        }
+
+        function updateOwnerDashboardStats() {
+            if (!ownerBuildings) return;
+            
+            // 1. 보유 건물 수
+            const bCountEl = document.getElementById('owner-stat-buildings');
+            if (bCountEl) bCountEl.innerText = ownerBuildings.length + ' 개';
+
+            // 2. 관리 호실 수 및 입주율/공실 계산
+            let totalRooms = 0;
+            let occupiedRooms = 0;
+            
+            ownerBuildings.forEach(b => {
+                if (b.rooms && b.rooms.length > 0) {
+                    totalRooms += b.rooms.length;
+                    b.rooms.forEach(r => {
+                        if (r.room_status === '입주중' || r.roomStatus === '입주중' || r.status === 'manual') {
+                            occupiedRooms++;
+                        }
+                    });
+                }
+            });
+            
+            const rCountEl = document.getElementById('owner-stat-rooms');
+            if (rCountEl) rCountEl.innerText = totalRooms + ' 개';
+            
+            // 3. 입주율 (공실)
+            const occupancyEl = document.getElementById('owner-stat-occupancy');
+            if (occupancyEl) {
+                if (totalRooms === 0) {
+                    occupancyEl.innerText = '0% (0호)';
+                } else {
+                    const rate = Math.round((occupiedRooms / totalRooms) * 100);
+                    const vacantCount = totalRooms - occupiedRooms;
+                    occupancyEl.innerText = rate + '% (공실 ' + vacantCount + '호)';
+                }
+            }
+
+            // 4. 하자보수 요청
+            const pendingEl = document.getElementById('owner-stat-pending');
+            if (pendingEl) {
+                pendingEl.innerText = '1 건';
+            }
         }
 
         function toggleBuildingMenu(idx, event) {
@@ -1727,6 +1781,10 @@
                 document.getElementById('rd-broker-address').value = '';
                 document.getElementById('rd-broker-phone').value = '';
                 document.getElementById('rd-broker-reg-number').value = '';
+                document.getElementById('rd-room-count').value = '';
+                document.getElementById('rd-bathroom-count').value = '';
+                document.getElementById('rd-living-room-count').value = '';
+                document.getElementById('rd-veranda-count').value = '';
 
                 // OCR 보임/숨김 UI 초기화 (사전에 추출된 데이터가 없는 경우만 초기화)
                 if (!preExtractedData) {
@@ -1773,7 +1831,11 @@
                                 brokerAddress: bData ? bData.address : data.broker_address,
                                 brokerPhone: bData ? bData.phone : data.broker_phone,
                                 brokerRegNumber: bData ? bData.registration_no : data.broker_reg_number,
-                                contractImageUrl: data.contract_image_url || ''
+                                contractImageUrl: data.contract_image_url || '',
+                                roomCount: data.room_count,
+                                bathroomCount: data.bathroom_count,
+                                livingRoomCount: data.living_room_count,
+                                verandaCount: data.veranda_count
                             };
                         }
                     } catch (e) {
@@ -1815,6 +1877,11 @@
                     document.getElementById('rd-broker-address').value = matched.brokerAddress || '';
                     document.getElementById('rd-broker-phone').value = matched.brokerPhone || '';
                     document.getElementById('rd-broker-reg-number').value = matched.brokerRegNumber || '';
+                    
+                    document.getElementById('rd-room-count').value = matched.roomCount !== undefined ? matched.roomCount : '';
+                    document.getElementById('rd-bathroom-count').value = matched.bathroomCount !== undefined ? matched.bathroomCount : '';
+                    document.getElementById('rd-living-room-count').value = matched.livingRoomCount !== undefined ? matched.livingRoomCount : '';
+                    document.getElementById('rd-veranda-count').value = matched.verandaCount !== undefined ? matched.verandaCount : '';
 
                     // 추가: 기존 계약서 이미지가 있을 경우 미리보기 바인딩
                     if (matched.contractImageUrl) {
@@ -1838,6 +1905,10 @@
                 if (preExtractedData) {
                     if (preExtractedData.ocr_room_type) document.getElementById('rd-room-type').value = preExtractedData.ocr_room_type;
                     if (preExtractedData.ocr_area) document.getElementById('rd-area').value = parseFloat(preExtractedData.ocr_area) || '';
+                    if (preExtractedData.ocr_room_count) document.getElementById('rd-room-count').value = preExtractedData.ocr_room_count;
+                    if (preExtractedData.ocr_bathroom_count) document.getElementById('rd-bathroom-count').value = preExtractedData.ocr_bathroom_count;
+                    if (preExtractedData.ocr_living_room_count) document.getElementById('rd-living-room-count').value = preExtractedData.ocr_living_room_count;
+                    if (preExtractedData.ocr_veranda_count) document.getElementById('rd-veranda-count').value = preExtractedData.ocr_veranda_count;
                     if (preExtractedData.ocr_deposit) {
                         const dep = parseInt(preExtractedData.ocr_deposit.toString().replace(/[^0-9]/g, ''));
                         if (!isNaN(dep)) document.getElementById('rd-deposit').value = dep;
@@ -1888,6 +1959,126 @@
                             initRdOcrInteractions();
                             setRdOcrMode('magnifier');
                         }, 100);
+                    }
+
+                    // 2차 인증 직후 등으로 이미지만 직접 넘어온 경우, 상세 페이지 내에서 실시간 AI 추출을 실행
+                    if (!preExtractedData) {
+                        // AI 분석 중 폼 내 입력 요소 비활성화 처리
+                        const formElements = document.querySelectorAll('#room-detail-edit-form input, #room-detail-edit-form select, #room-detail-edit-form button');
+                        formElements.forEach(el => {
+                            if (el.id !== 'rd-ocr-file-input') {
+                                el.disabled = true;
+                            }
+                        });
+
+                        // 임시 로딩 피드백 제공 (진행바 및 로딩 뷰 표시)
+                        const loadingView = document.getElementById('loading-view');
+                        if (loadingView) {
+                            loadingView.querySelector('h3').innerText = 'AI 모델을 통해 계약서 데이터를 상세 추출 중입니다...';
+                            loadingView.classList.remove('hidden');
+                        }
+
+                        const saveBtn = document.getElementById('btn-save-room-detail');
+                        const originalBtnText = saveBtn ? saveBtn.innerHTML : '변경사항 저장';
+                        if (saveBtn) {
+                            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> AI 정보 추출 중...';
+                        }
+
+                        (async () => {
+                            try {
+                                const response = await fetch('/api/gemini-extract', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        imageBase64: preBase64,
+                                        apiKey: await getGeminiApiKey()
+                                    })
+                                });
+                                const result = await response.json();
+
+                                // 폼 활성화 복원 및 진행바 숨김
+                                formElements.forEach(el => {
+                                    el.disabled = false;
+                                });
+                                if (saveBtn) saveBtn.innerHTML = originalBtnText;
+                                if (loadingView) {
+                                    loadingView.classList.add('hidden');
+                                    loadingView.querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
+                                }
+
+                                if (response.ok && result.success && result.data) {
+                                    const extData = result.data;
+                                    
+                                    // 각 필드에 AI 추출 결과 자동 기입
+                                    if (extData.ocr_room_number) {
+                                        let roomVal = extData.ocr_room_number.toString().trim();
+                                        if (roomVal && roomVal !== '미지정') {
+                                            if (!roomVal.endsWith('호')) roomVal += '호';
+                                            document.getElementById('rd-room-number').value = roomVal;
+                                            
+                                            // 캐시 상의 방 번호도 동기화하여 최종 저장 시 일관성 유지
+                                            if (ownerBuildings[bIdx] && ownerBuildings[bIdx].rooms && ownerBuildings[bIdx].rooms[rIdx]) {
+                                                ownerBuildings[bIdx].rooms[rIdx].roomNumber = roomVal;
+                                            }
+                                        }
+                                    }
+                                    if (extData.ocr_room_type) document.getElementById('rd-room-type').value = extData.ocr_room_type;
+                                    if (extData.ocr_room_count) document.getElementById('rd-room-count').value = extData.ocr_room_count;
+                                    if (extData.ocr_bathroom_count) document.getElementById('rd-bathroom-count').value = extData.ocr_bathroom_count;
+                                    if (extData.ocr_living_room_count) document.getElementById('rd-living-room-count').value = extData.ocr_living_room_count;
+                                    if (extData.ocr_veranda_count) document.getElementById('rd-veranda-count').value = extData.ocr_veranda_count;
+                                    if (extData.ocr_area) document.getElementById('rd-area').value = parseFloat(extData.ocr_area) || '';
+                                    if (extData.ocr_deposit) {
+                                        const dep = parseInt(extData.ocr_deposit.toString().replace(/[^0-9]/g, ''));
+                                        if (!isNaN(dep)) document.getElementById('rd-deposit').value = dep;
+                                    }
+                                    if (extData.ocr_monthly_rent) {
+                                        const rent = parseInt(extData.ocr_monthly_rent.toString().replace(/[^0-9]/g, ''));
+                                        if (!isNaN(rent)) document.getElementById('rd-monthly-rent').value = rent;
+                                    }
+                                    if (extData.ocr_maintenance_fee) {
+                                        const fee = parseInt(extData.ocr_maintenance_fee.toString().replace(/[^0-9]/g, ''));
+                                        if (!isNaN(fee)) document.getElementById('rd-maintenance-fee').value = fee;
+                                    }
+                                    if (extData.ocr_cleaning_fee) {
+                                        const fee = parseInt(extData.ocr_cleaning_fee.toString().replace(/[^0-9]/g, ''));
+                                        if (!isNaN(fee)) document.getElementById('rd-cleaning-fee').value = fee;
+                                    }
+                                    if (extData.ocr_tenant_name) document.getElementById('rd-tenant-name').value = extData.ocr_tenant_name;
+                                    if (extData.ocr_tenant_phone) document.getElementById('rd-tenant-phone').value = extData.ocr_tenant_phone;
+                                    
+                                    const formatOcrDate = (dStr) => {
+                                        if (!dStr) return '';
+                                        return dStr.replace(/-/g, '.');
+                                    };
+                                    if (extData.ocr_contract_date) document.getElementById('rd-contract-date').value = formatOcrDate(extData.ocr_contract_date);
+                                    if (extData.ocr_lease_start_date) document.getElementById('rd-lease-start-date').value = formatOcrDate(extData.ocr_lease_start_date);
+                                    if (extData.ocr_lease_end_date) document.getElementById('rd-lease-end-date').value = formatOcrDate(extData.ocr_lease_end_date);
+                                    
+                                    if (extData.ocr_broker_agency_name) document.getElementById('rd-broker-agency').value = extData.ocr_broker_agency_name;
+                                    if (extData.ocr_broker_representative) document.getElementById('rd-broker-rep').value = extData.ocr_broker_representative;
+                                    if (extData.ocr_broker_address) document.getElementById('rd-broker-address').value = extData.ocr_broker_address;
+                                    if (extData.ocr_broker_phone) document.getElementById('rd-broker-phone').value = extData.ocr_broker_phone;
+                                    if (extData.ocr_broker_registration_no) document.getElementById('rd-broker-reg-number').value = extData.ocr_broker_registration_no;
+                                    
+                                    document.getElementById('rd-room-status').value = '입주중';
+                                    
+                                    showModalAlert('계약서 AI 정보 추출이 성공적으로 완료되었습니다.');
+                                    
+                                    // 변경 이력 감지를 위한 초기 상태 값 재세팅 및 변경 사항 체크
+                                    initialRoomDetailState = getRoomDetailFormState();
+                                    checkRoomDetailChanges();
+                                } else {
+                                    showModalAlert(result.error || '계약서 AI 추출에 실패했습니다.');
+                                }
+                            } catch (err) {
+                                console.error('Auto Gemini extract error:', err);
+                                formElements.forEach(el => {
+                                    el.disabled = false;
+                                });
+                                if (saveBtn) saveBtn.innerHTML = originalBtnText;
+                            }
+                        })();
                     }
                 }
 
@@ -2421,7 +2612,7 @@
                 let text = lastRdExtractedText;
                 if (fieldId === 'rd-area') {
                     text = text.replace(/[m㎡²\s]/gi, '');
-                } else if (['rd-deposit', 'rd-monthly-rent', 'rd-maintenance-fee', 'rd-cleaning-fee'].includes(fieldId)) {
+                } else if (['rd-deposit', 'rd-monthly-rent', 'rd-maintenance-fee', 'rd-cleaning-fee', 'rd-room-count', 'rd-bathroom-count', 'rd-living-room-count', 'rd-veranda-count'].includes(fieldId)) {
                     text = text.replace(/[^0-9]/g, '');
                 } else if (['rd-contract-date', 'rd-lease-start-date', 'rd-lease-end-date'].includes(fieldId)) {
                     text = text.replace(/-/g, '.');
@@ -2521,10 +2712,19 @@
                 const brokerPhone = document.getElementById('rd-broker-phone').value;
                 const brokerRegNumber = document.getElementById('rd-broker-reg-number').value;
 
+                const roomCount = document.getElementById('rd-room-count').value !== '' ? parseInt(document.getElementById('rd-room-count').value) : null;
+                const bathroomCount = document.getElementById('rd-bathroom-count').value !== '' ? parseInt(document.getElementById('rd-bathroom-count').value) : null;
+                const livingRoomCount = document.getElementById('rd-living-room-count').value !== '' ? parseInt(document.getElementById('rd-living-room-count').value) : null;
+                const verandaCount = document.getElementById('rd-veranda-count').value !== '' ? parseInt(document.getElementById('rd-veranda-count').value) : null;
+
                 // 로컬 구조 변경
                 r.type = roomType;
                 r.floor_type = floorType;
                 r.floor_no = floorNo;
+                r.room_count = roomCount;
+                r.bathroom_count = bathroomCount;
+                r.living_room_count = livingRoomCount;
+                r.veranda_count = verandaCount;
 
                 if (typeof supabaseClient !== 'undefined' && supabaseClient) {
                     const sessionData = await supabaseClient.auth.getSession();
@@ -2589,7 +2789,10 @@
                     if (contractId) {
                         // 기존 계약이 있으면 업데이트
                         const updatePayload = {
-                            room_count: roomType === '투룸' ? 2 : 1,
+                            room_count: roomCount,
+                            bathroom_count: bathroomCount,
+                            living_room_count: livingRoomCount,
+                            veranda_count: verandaCount,
                             room_type: roomType,
                             floor_type: floorType,
                             floor_no: floorNo,
@@ -2626,7 +2829,10 @@
                             building_id: b.id,
                             owner_id: session.user.id,
                             room_number: r.roomNumber,
-                            room_count: roomType === '투룸' ? 2 : 1,
+                            room_count: roomCount,
+                            bathroom_count: bathroomCount,
+                            living_room_count: livingRoomCount,
+                            veranda_count: verandaCount,
                             room_type: roomType,
                             floor_type: floorType,
                             floor_no: floorNo,
@@ -2903,18 +3109,18 @@
                                         if (submitBtn) submitBtn.disabled = false;
                                         return;
                                     }
-                                    const newBuilding = { name: bName, address: bAddr, isPrimary: ownerBuildings.length === 0, floors: 1, rooms: [] };
+                                    const newBuilding = { name: bName, address: bAddr, isPrimary: ownerBuildings.length === 0, floors: 1, rooms: [{ roomNumber: '101호', type: '원룸', room_status: '공실' }] };
                                     ownerBuildings.push(newBuilding);
                                     document.getElementById('loading-view').classList.add('hidden');
-                                    document.getElementById('loading-view').querySelector('h3').innerText = '데이터를 처리 중입니다...';
-                                    showModalAlert('새 건물 추가가 완료되었습니다.\n[추가된 건물: ' + bName + ']');
                                     renderOwnerBuildings();
-                                    showView('owner-app');
                                     
                                     document.getElementById('add-building-address').value = '';
                                     document.getElementById('add-building-name').value = '';
                                     fileInput.value = '';
                                     if (submitBtn) submitBtn.disabled = false;
+
+                                    const bIdx = ownerBuildings.length - 1;
+                                    await openRoomDetailPage(bIdx, 0);
                                     return;
                                 }
 
@@ -2954,7 +3160,6 @@
                                     .select();
 
                                 document.getElementById('loading-view').classList.add('hidden');
-                                document.getElementById('loading-view').querySelector('h3').innerText = '데이터를 처리 중입니다...';
 
                                 if (error) {
                                     showModalAlert('건물 등록 실패: ' + error.message);
@@ -2963,15 +3168,61 @@
                                 }
 
                                 if (!ownerBuildings) ownerBuildings = [];
-                                ownerBuildings.push(...insertedData);
-                                
-                                showModalAlert('새 건물 추가가 완료되었습니다.\n[추가된 건물: ' + bName + ']');
+                                const newB = insertedData[0];
+                                newB.rooms = [{ roomNumber: '101호', type: '원룸', room_status: '공실' }];
+                                ownerBuildings.push(newB);
+
+                                // Supabase DB에 101호 기본 계약/호실 데이터 추가
+                                const { data: contractData, error: contractErr } = await supabaseClient.from('contracts').insert([{
+                                    building_id: newB.id,
+                                    owner_id: session.user.id,
+                                    status: 'manual',
+                                    room_number: '101호',
+                                    room_count: 1,
+                                    room_type: '원룸',
+                                    room_status: '공실',
+                                    bathroom_count: 1,
+                                    living_room_count: 0,
+                                    veranda_count: 1,
+                                    deposit: 0,
+                                    monthly_rent: 0,
+                                    maintenance_fee: 0,
+                                    cleaning_fee: 0
+                                }]).select();
+
+                                if (!contractErr && contractData && contractData.length > 0) {
+                                    const newC = contractData[0];
+                                    if (typeof activeTenantsData === 'undefined') activeTenantsData = [];
+                                    activeTenantsData.push({
+                                        id: newC.id,
+                                        building_id: newC.building_id,
+                                        tenantName: newC.tenant_name || '이름 없음',
+                                        room: newC.room_number,
+                                        roomType: newC.room_type || '미지정',
+                                        roomStatus: newC.room_status || '공실',
+                                        address: bAddr,
+                                        isManual: newC.status === 'manual',
+                                        tenantPhone: newC.tenant_phone || '',
+                                        deposit: newC.deposit || 0,
+                                        monthlyRent: newC.monthly_rent || 0,
+                                        maintenanceFee: newC.maintenance_fee || 0,
+                                        cleaningFee: newC.cleaning_fee || 0,
+                                        contractDate: newC.contract_date || '',
+                                        leaseStartDate: newC.lease_start_date || '',
+                                        leaseEndDate: newC.lease_end_date || '',
+                                        status: newC.status || ''
+                                    });
+                                }
+
                                 renderOwnerBuildings();
-                                showView('owner-app');
 
                                 document.getElementById('add-building-address').value = '';
                                 document.getElementById('add-building-name').value = '';
                                 fileInput.value = '';
+                                if (submitBtn) submitBtn.disabled = false;
+
+                                const bIdx = ownerBuildings.findIndex(b => b.id === newB.id);
+                                await openRoomDetailPage(bIdx, 0);
                             } catch (error) {
                                 document.getElementById('loading-view').classList.add('hidden');
                                 document.getElementById('loading-view').querySelector('h3').innerText = '데이터를 처리 중입니다...';
@@ -2980,18 +3231,158 @@
                         }
 
         function runOcr() {
-            const container = document.getElementById('ocr-result');
-            container.innerHTML = '<div style="text-align:center; padding: 20px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: var(--primary-light-blue); margin-bottom:10px;"></i><br>OCR 분석 중...</div>';
-            fetch('/api/ocr')
-                .then(res => res.json())
-                .then(res => {
-                    container.innerHTML = `
-                        <div style="background-color: #f0f4f8; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-light-blue); font-size:13px;">
-                            <b>소재지:</b> ${res.data.property.address} ${res.data.property.room_number}<br>
-                            <b>임차인:</b> ${res.data.tenant.name}님
-                        </div>
-                    `;
-                });
+            const fileInput = document.getElementById('dashboard-contract-upload-input');
+            if (fileInput) fileInput.click();
+        }
+
+        async function handleDashboardContractUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const loadingView = document.getElementById('loading-view');
+            if (loadingView) {
+                loadingView.querySelector('h3').innerText = '계약서 정보를 분석 중입니다...';
+                loadingView.classList.remove('hidden');
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const base64Data = e.target.result;
+                
+                // Canvas 이미지 전처리 (흑백 대비 극대화)
+                const img = new Image();
+                img.onload = async function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    const MAX_WIDTH = 1500;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > MAX_WIDTH) {
+                        height = Math.round((height * MAX_WIDTH) / width);
+                        width = MAX_WIDTH;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    const imageData = ctx.getImageData(0, 0, width, height);
+                    const data = imageData.data;
+                    
+                    const threshold = 140;
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+                        const v = (0.299 * r + 0.587 * g + 0.114 * b);
+                        const color = v >= threshold ? 255 : 0;
+                        data[i] = color;
+                        data[i + 1] = color;
+                        data[i + 2] = color;
+                    }
+                    
+                    ctx.putImageData(imageData, 0, 0);
+                    const preprocessedBase64 = canvas.toDataURL('image/png');
+
+                    try {
+                        const ownerName = document.getElementById('common-edit-name').value || document.getElementById('main-display-name').textContent.replace(' 님', '').trim() || '김임대';
+                        const response = await fetch('/api/verify-contract-ocr', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                imageBase64: preprocessedBase64,
+                                ownerName: ownerName,
+                                bAddr: ''
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (!response.ok || !result.success) {
+                            if (loadingView) loadingView.classList.add('hidden');
+                            showModalAlert(result.error || result.message || '인증 실패: 계약서 분석을 완료할 수 없습니다.');
+                            return;
+                        }
+
+                        let targetBuilding = (ownerBuildings && ownerBuildings.length > 0) ? ownerBuildings[0] : null;
+                        
+                        if (result.extractedAddress && ownerBuildings && ownerBuildings.length > 0) {
+                            const found = ownerBuildings.find(b => b.address && b.address.includes(result.extractedAddress.trim()));
+                            if (found) targetBuilding = found;
+                        }
+                        
+                        if (!targetBuilding) {
+                            if (loadingView) loadingView.classList.add('hidden');
+                            showModalAlert('등록된 건물 정보가 없습니다. 대시보드 우측의 [건물 추가] 버튼을 통해 먼저 건물을 등록해 주세요.');
+                            return;
+                        }
+
+                        let bIdx = ownerBuildings.findIndex(b => b.id === targetBuilding.id);
+                        if (bIdx === -1) bIdx = 0;
+
+                        let roomNum = '101호';
+                        if (result.extractedTenant && result.extractedTenant.room && result.extractedTenant.room !== '미지정') {
+                            roomNum = result.extractedTenant.room;
+                            if (!roomNum.endsWith('호')) roomNum += '호';
+                        }
+
+                        if (!ownerBuildings[bIdx].rooms) ownerBuildings[bIdx].rooms = [];
+                        let rIdx = ownerBuildings[bIdx].rooms.findIndex(r => r.roomNumber === roomNum);
+                        if (rIdx === -1) {
+                            ownerBuildings[bIdx].rooms.push({
+                                roomNumber: roomNum,
+                                type: '원룸',
+                                room_status: '입주중'
+                            });
+                            rIdx = ownerBuildings[bIdx].rooms.length - 1;
+                        }
+
+                        // 중복 계약서 검증 (이미지 또는 동일 건물/호실 중복 방지)
+                        if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+                            // 1. 이미지 데이터 중복 체크
+                            const { data: existingImg, error: imgErr } = await supabaseClient
+                                .from('contracts')
+                                .select('id')
+                                .eq('contract_image_url', base64Data)
+                                .maybeSingle();
+                            
+                            if (!imgErr && existingImg) {
+                                if (loadingView) loadingView.classList.add('hidden');
+                                showModalAlert('동일한 계약서 이미지가 이미 시스템에 존재합니다.');
+                                return;
+                            }
+
+                            // 2. 해당 건물 및 호실 계약 중복 체크
+                            const { data: existingContract, error: checkError } = await supabaseClient
+                                .from('contracts')
+                                .select('id')
+                                .eq('building_id', targetBuilding.id)
+                                .eq('room_number', roomNum)
+                                .maybeSingle();
+
+                            if (!checkError && existingContract) {
+                                if (loadingView) loadingView.classList.add('hidden');
+                                showModalAlert('해당 호실에 계약서가 이미 등록되어 존재합니다.');
+                                return;
+                            }
+                        }
+
+                        if (loadingView) loadingView.classList.add('hidden');
+                        
+                        // 호실 상세 페이지 바로 오픈 & AI 정밀 추출 실행
+                        await openRoomDetailPage(bIdx, rIdx, null, base64Data);
+
+                    } catch (error) {
+                        console.error(error);
+                        if (loadingView) loadingView.classList.add('hidden');
+                        showModalAlert('OCR 분석 중 오류가 발생했습니다: ' + error.message);
+                    }
+                };
+                img.src = base64Data;
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
         }
 
         function loadInventory() {

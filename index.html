@@ -349,29 +349,80 @@
             <div id="pending-invites-section"></div>
 
             <!-- 현재 관리 중인 임차인 섹션 -->
-            <div id="active-tenants-section" style="margin-bottom: 20px;"></div>
+            <div id="active-tenants-section" style="margin-bottom: 25px;"></div>
 
-            <div class="dashboard-layout">
-                <div>
-                    <div class="card">
-                        <div class="card-title"><i class="fa-solid fa-file-invoice-dollar"></i> 계약서 OCR 등록</div>
-                        <button class="btn" onclick="runOcr()" style="margin-top:15px;">계약서 사진 업로드</button>
-                        <div id="ocr-result" style="margin-top: 15px;"></div>
+            <!-- 상단 요약 지표 (KPI) 영역 -->
+            <div class="dashboard-metrics" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 25px;">
+                <div class="card" style="margin: 0; padding: 20px; display: flex; align-items: center; gap: 15px; border-radius: 12px; border: 1px solid #edf2f7; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01); transition: transform 0.2s, box-shadow 0.2s; cursor: default;">
+                    <div style="width: 48px; height: 48px; border-radius: 10px; background: #ebf8ff; display: flex; align-items: center; justify-content: center; color: #3182ce; font-size: 20px;">
+                        <i class="fa-solid fa-building"></i>
                     </div>
-                    <div class="card">
-                        <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> 자재 및 소모품 현황</div>
+                    <div>
+                        <p style="font-size: 11px; color: #718096; margin: 0 0 2px 0; font-weight: 500;">보유 건물 수</p>
+                        <h3 id="owner-stat-buildings" style="font-size: 20px; font-weight: 700; color: #2d3748; margin: 0;">- 개</h3>
+                    </div>
+                </div>
+                <div class="card" style="margin: 0; padding: 20px; display: flex; align-items: center; gap: 15px; border-radius: 12px; border: 1px solid #edf2f7; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01); transition: transform 0.2s, box-shadow 0.2s; cursor: default;">
+                    <div style="width: 48px; height: 48px; border-radius: 10px; background: #e6fffa; display: flex; align-items: center; justify-content: center; color: #319795; font-size: 20px;">
+                        <i class="fa-solid fa-door-closed"></i>
+                    </div>
+                    <div>
+                        <p style="font-size: 11px; color: #718096; margin: 0 0 2px 0; font-weight: 500;">관리 호실 수</p>
+                        <h3 id="owner-stat-rooms" style="font-size: 20px; font-weight: 700; color: #2d3748; margin: 0;">- 개</h3>
+                    </div>
+                </div>
+                <div class="card" style="margin: 0; padding: 20px; display: flex; align-items: center; gap: 15px; border-radius: 12px; border: 1px solid #edf2f7; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01); transition: transform 0.2s, box-shadow 0.2s; cursor: default;">
+                    <div style="width: 48px; height: 48px; border-radius: 10px; background: #fffaf0; display: flex; align-items: center; justify-content: center; color: #dd6b20; font-size: 20px;">
+                        <i class="fa-solid fa-user-check"></i>
+                    </div>
+                    <div>
+                        <p style="font-size: 11px; color: #718096; margin: 0 0 2px 0; font-weight: 500;">입주율 (공실)</p>
+                        <h3 id="owner-stat-occupancy" style="font-size: 16px; font-weight: 700; color: #2d3748; margin: 0;">- % (-호)</h3>
+                    </div>
+                </div>
+                <div class="card" style="margin: 0; padding: 20px; display: flex; align-items: center; gap: 15px; border-radius: 12px; border: 1px solid #edf2f7; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01); transition: transform 0.2s, box-shadow 0.2s; cursor: default;">
+                    <div style="width: 48px; height: 48px; border-radius: 10px; background: #fed7d7; display: flex; align-items: center; justify-content: center; color: #e53e3e; font-size: 20px;">
+                        <i class="fa-solid fa-bell"></i>
+                    </div>
+                    <div>
+                        <p style="font-size: 11px; color: #718096; margin: 0 0 2px 0; font-weight: 500;">하자보수 요청</p>
+                        <h3 id="owner-stat-pending" style="font-size: 20px; font-weight: 700; color: #2d3748; margin: 0;">- 건</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-layout" style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 25px; align-items: start;">
+                <div>
+                    <div class="card" style="margin-bottom: 25px; border-radius: 16px; border: 1px solid #edf2f7; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);">
+                        <div class="card-title" style="border-bottom: 1px solid #edf2f7; padding-bottom: 15px; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-wrench" style="color: var(--point-orange);"></i> 실시간 하자보수 현황
+                        </div>
+                        <div style="position: relative; padding-left: 24px; border-left: 2px solid #e2e8f0; margin-top: 10px; margin-left: 10px; padding-bottom: 5px;">
+                            <div style="position: relative;">
+                                <div style="position: absolute; left: -30px; top: 3px; width: 10px; height: 10px; border-radius: 50%; background: var(--point-orange); box-shadow: 0 0 0 4px #ffedd5;"></div>
+                                <span style="font-size: 10px; font-weight: 700; color: var(--point-orange); background: #fff5eb; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 6px;">수리 진행중</span>
+                                <h5 style="font-size: 14px; font-weight: 600; color: #2d3748; margin: 0 0 4px 0;">302호 세면대 배수 트랩 교체</h5>
+                                <p style="font-size: 12px; color: #718096; margin: 0;">하자 접수 및 자재 발주 완료 (금일 방문 수리 예정)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card" style="margin-bottom: 25px; border-radius: 16px; border: 1px solid #edf2f7; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);">
+                        <div class="card-title" style="border-bottom: 1px solid #edf2f7; padding-bottom: 15px; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-boxes-stacked" style="color: var(--primary-light-blue);"></i> 자재 및 소모품 현황
+                        </div>
                         <div class="inventory-list" id="inventory-list"></div>
                     </div>
                 </div>
                 <div>
-                    <div class="card">
-                        <div class="card-title"><i class="fa-solid fa-wrench"></i> 실시간 하자보수 스텝퍼</div>
-                        <p style="font-size:13px; margin-top:10px; color:#718096;">[수리중] 302호 세면대 배수 트랩 교체 진행 중</p>
+                    <div style="margin-bottom: 25px;">
+                        <input type="file" id="dashboard-contract-upload-input" accept="image/*" style="display: none;" onchange="handleDashboardContractUpload(event)">
+                        <button class="btn btn-orange" onclick="runOcr()" style="width: 100%; justify-content: center; padding: 14px; font-weight: 600; font-size: 14px; border-radius: 12px; box-shadow: 0 4px 10px rgba(237, 137, 54, 0.25); border: none; cursor: pointer; transition: all 0.2s;"><i class="fa-solid fa-file-arrow-up" style="margin-right: 6px;"></i> 계약서 업로드 (AI 자동 추출)</button>
+                        <div id="ocr-result" style="margin-top: 15px;"></div>
                     </div>
-                    <div class="card" style="margin-top: 30px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <div class="card-title" style="margin-bottom: 0;"><i class="fa-solid fa-building-user"></i> 내 건물 관리</div>
-                            <button class="btn btn-orange" style="padding: 6px 12px; font-size: 12px;" onclick="showView('add-building-view')"><i class="fa-solid fa-plus"></i> 건물 추가</button>
+                    <div class="card" style="border-radius: 16px; border: 1px solid #edf2f7; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; padding-bottom: 15px; margin-bottom: 20px;">
+                            <div class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-building-user" style="color: var(--primary-light-blue);"></i> 내 건물 관리</div>
+                            <button class="btn btn-orange" style="padding: 6px 12px; font-size: 12px; border-radius: 8px;" onclick="showView('add-building-view')"><i class="fa-solid fa-plus"></i> 건물 추가</button>
                         </div>
                         <div id="owner-buildings-list">
                         </div>
@@ -1099,6 +1150,25 @@
                         </div>
                     </div>
 
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 15px;">
+                        <div class="form-group">
+                            <label>방 개수</label>
+                            <input type="number" id="rd-room-count" class="form-control" placeholder="예: 1" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>화장실 개수</label>
+                            <input type="number" id="rd-bathroom-count" class="form-control" placeholder="예: 1" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>거실 개수</label>
+                            <input type="number" id="rd-living-room-count" class="form-control" placeholder="예: 0" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>베란다 개수</label>
+                            <input type="number" id="rd-veranda-count" class="form-control" placeholder="예: 1" min="0">
+                        </div>
+                    </div>
+
                     <h4 style="margin: 30px 0 10px 0; color: var(--primary-deep-navy); border-left: 4px solid var(--primary-light-blue); padding-left: 8px;">2. 임차인 및 계약 정보</h4>
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
                         <div class="form-group">
@@ -1409,6 +1479,6 @@
         </div>
     </div>
 
-    <script src="/js/app.js?v=20260630_7"></script>
+    <script src="/js/app.js?v=20260630_20"></script>
 </body>
 </html>

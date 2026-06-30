@@ -159,9 +159,10 @@ const server = http.createServer(async (req, res) => {
         const ownerName = data.ownerName;
         const bAddr = data.bAddr;
 
-        if (!imageBase64 || !ownerName || !bAddr) {
+        // bAddr는 2차 인증 시에만 필수이며, 대시보드 다이렉트 업로드 시에는 주소가 없을 수 있으므로 빈 값 허용
+        if (!imageBase64 || !ownerName) {
             res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-            return res.end(JSON.stringify({ success: false, error: '계약서 이미지, 임대인 이름 또는 건물 주소가 누락되었습니다.' }));
+            return res.end(JSON.stringify({ success: false, error: '계약서 이미지 또는 임대인 이름이 누락되었습니다.' }));
         }
 
         const tesseract = require('tesseract.js');
@@ -194,22 +195,23 @@ const server = http.createServer(async (req, res) => {
         }
         
         // 2. 주소 검증 (토큰 단위 유연한 매칭)
-        const addrParts = bAddr.split(/\s+/).filter(p => p.length > 0);
-        let matchedAddrCount = 0;
-        for (let part of addrParts) {
-            // '서울' -> '서울특별시' 등 축약어/풀네임 차이 완화
-            if (part === '서울') part = '서울';
-            if (cleanText.includes(part) || text.includes(part)) {
-                matchedAddrCount++;
-            } else if (part === '서울' && cleanText.includes('서울특별시')) {
-                matchedAddrCount++;
-            } else if (part === '경기' && cleanText.includes('경기도')) {
-                matchedAddrCount++;
+        // bAddr가 제공되었을 때만 주소 매칭 검증을 실시하고, 그렇지 않으면 우회(true) 처리
+        let isAddrMatched = true;
+        if (bAddr && bAddr.trim() !== '') {
+            const addrParts = bAddr.split(/\s+/).filter(p => p.length > 0);
+            let matchedAddrCount = 0;
+            for (let part of addrParts) {
+                if (cleanText.includes(part) || text.includes(part)) {
+                    matchedAddrCount++;
+                } else if (part === '서울' && cleanText.includes('서울특별시')) {
+                    matchedAddrCount++;
+                } else if (part === '경기' && cleanText.includes('경기도')) {
+                    matchedAddrCount++;
+                }
             }
+            const lastToken = addrParts[addrParts.length - 1];
+            isAddrMatched = (matchedAddrCount >= Math.ceil(addrParts.length / 2)) || (lastToken && cleanText.includes(lastToken) && lastToken.length >= 2);
         }
-        // 주소 구성 요소 중 50% 이상 일치하거나, 건물 번지수(마지막 토큰)가 일치하면 인정
-        const lastToken = addrParts[addrParts.length - 1];
-        const isAddrMatched = (matchedAddrCount >= Math.ceil(addrParts.length / 2)) || (lastToken && cleanText.includes(lastToken) && lastToken.length >= 2);
         
         // 3. 계약서 필수 키워드 확인 ('소재지', '소재시', '임대인', '성명' 등)
         const hasContractKeywords = cleanText.includes('소재지') || cleanText.includes('소재시') || cleanText.includes('임대인') || cleanText.includes('성명');
@@ -273,13 +275,20 @@ const server = http.createServer(async (req, res) => {
         const realtorRegMatch = cleanText.match(/등록번호([가-힣0-9-]+)/);
         extractedContract.realtor_registration_no = realtorRegMatch ? realtorRegMatch[1] : '추출 실패';
 
-        // 최종 판별: 이름과 주소가 모두 (유연한 기준을 통과하여) 일치해야 성공 처리
+        // 주소 정보 동적 추출 시도
+        let extractedAddress = null;
+        const addressMatch = text.match(/(?:소재지|주소|토지소재지)[\s:：]*([^\n\r]+)/);
+        if (addressMatch) {
+            extractedAddress = addressMatch[1].trim();
+        }
+
+        // 최종 판별: 이름과 주소가 모두 일치해야 성공 처리
         let matched = (isNameMatched && isAddrMatched);
         
-        console.log(`[OCR 매칭 결과] 이름: \${isNameMatched}, 주소: \${isAddrMatched}, 양식확인: \${hasContractKeywords} -> 최종: \${matched ? '일치' : '불일치'}`);
+        console.log(`[OCR 매칭 결과] 이름: ${isNameMatched}, 주소: ${isAddrMatched}, 양식확인: ${hasContractKeywords} -> 최종: ${matched ? '일치' : '불일치'}`);
         
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: true, matched: matched, extractedTenant: extractedTenant, extractedContract: extractedContract }));
+        res.end(JSON.stringify({ success: true, matched: matched, extractedTenant: extractedTenant, extractedContract: extractedContract, extractedAddress: extractedAddress }));
       } catch (err) {
         console.error('[OCR 처리 중 에러 발생]', err);
         res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
