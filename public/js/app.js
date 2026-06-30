@@ -440,39 +440,15 @@
             } else if (viewName === 'ocr-extraction-view') {
                 if(document.getElementById('ocr-extraction-view')) {
                     document.getElementById('ocr-extraction-view').classList.remove('hidden');
-                    // 15가지 상세 항목 필드 동적 생성
-                    const fieldsMeta = [
-                        { id: 'ocr_room_number', label: '1. 임대할 부분 (호실)', placeholder: '예: 302호' },
-                        { id: 'ocr_room_type', label: '1-0. 방 형태 (원룸/투룸)', placeholder: '예: 원룸 또는 투룸' },
-                        { id: 'ocr_room_count', label: '1-1. 방 개수', placeholder: '예: 1' },
-                        { id: 'ocr_bathroom_count', label: '1-2. 화장실 개수', placeholder: '예: 1' },
-                        { id: 'ocr_living_room_count', label: '1-3. 거실 개수', placeholder: '예: 0' },
-                        { id: 'ocr_veranda_count', label: '1-4. 베란다 개수', placeholder: '예: 1' },
-                        { id: 'ocr_area', label: '2. 임대 면적 (㎡)', placeholder: '예: 24.5' },
-                        { id: 'ocr_deposit', label: '3. 보증금 (원)', placeholder: '예: 10000000' },
-                        { id: 'ocr_monthly_rent', label: '4. 차임(월세) (원)', placeholder: '예: 550000' },
-                        { id: 'ocr_maintenance_fee', label: '5. 관리비 (원)', placeholder: '예: 70000' },
-                        { id: 'ocr_cleaning_fee', label: '6. 청소비 (원)', placeholder: '예: 100000' },
-                        { id: 'ocr_contract_date', label: '7. 계약일', placeholder: '예: 2026-06-16' },
-                        { id: 'ocr_lease_start_date', label: '8. 임대차 시작일', placeholder: '예: 2026-06-16' },
-                        { id: 'ocr_lease_end_date', label: '8-1. 임대차 종료일', placeholder: '예: 2028-06-15' },
-                        { id: 'ocr_tenant_name', label: '9. 임차인 성명', placeholder: '예: 홍길동' },
-                        { id: 'ocr_tenant_phone', label: '10. 임차인 전화번호', placeholder: '예: 010-1234-5678' },
-                        { id: 'ocr_broker_address', label: '11. 개업공인중개사 소재지', placeholder: '예: 서울특별시 마포구 백범로 123' },
-                        { id: 'ocr_broker_agency_name', label: '12. 중개사무소 명칭', placeholder: '예: 대박공인중개사사무소' },
-                        { id: 'ocr_broker_representative', label: '13. 개업공인중개사 대표 성명', placeholder: '예: 김대박' },
-                        { id: 'ocr_broker_registration_no', label: '14. 중개사무소 등록번호', placeholder: '예: 11440-2015-00123' },
-                        { id: 'ocr_broker_phone', label: '15. 개업공인중개사 전화번호', placeholder: '예: 02-987-6543' }
-                    ];
-                    const container = document.getElementById('ocr-fields-container');
-                    if (container) {
-                        container.innerHTML = fieldsMeta.map(f => `
-                            <div class="form-group" style="margin-bottom: 12px;">
-                                <label style="font-size: 13px; font-weight: 600; color: #4a5568; display: block; margin-bottom: 4px;">${f.label}</label>
-                                <input type="text" id="${f.id}" class="form-control" placeholder="${f.placeholder}" style="font-size: 13px; padding: 8px;">
-                            </div>
-                        `).join('');
-                    }
+                    // 모든 OCR 폼 입력란 값 초기화
+                    const ocrFields = document.querySelectorAll('#ocr-fields-container input, #ocr-fields-container select');
+                    ocrFields.forEach(el => {
+                        if (el.tagName === 'SELECT') {
+                            el.selectedIndex = 0;
+                        } else {
+                            el.value = '';
+                        }
+                    });
                     setTimeout(() => {
                         const ownerNameEl = document.getElementById('owner-display-name');
                         const ocrOwnerNameEl = document.getElementById('ocr-owner-display-name');
@@ -991,22 +967,73 @@
                                 }
                             }
                             
-                            // 2차 인증 성공 시, 자동으로 15개 항목 AI 추출 뷰로 이동하도록 연동합니다.
-                            window.ocrTargetBuildingId = targetBuildingId;
-                            const previewImage = document.getElementById('ocr-preview-img');
-                            if (previewImage) {
-                                previewImage.src = base64Data; // 원본 이미지 사용
-                            }
+                            // 2차 인증 성공 시, 자동으로 AI 상세 분석을 구동하고 원래 있던 "호실 및 임대차 상세 정보 수정" 페이지로 이동합니다.
+                            document.getElementById('loading-view').querySelector('h3').innerText = 'AI 모델을 통해 계약서 데이터를 상세 추출 중입니다...';
                             
+                            let extractedData = null;
+                            try {
+                                const geminiRes = await fetch('/api/gemini-extract', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        imageBase64: base64Data,
+                                        apiKey: await getGeminiApiKey()
+                                    })
+                                });
+                                const geminiResult = await geminiRes.json();
+                                if (geminiRes.ok && geminiResult.success) {
+                                    extractedData = geminiResult.data;
+                                }
+                            } catch (geminiErr) {
+                                console.error('Gemini extraction error:', geminiErr);
+                            }
+
+                            // 로컬 캐시 빌딩 정보 확인 및 갱신
+                            if (!ownerBuildings) ownerBuildings = [];
+                            let bIdx = ownerBuildings.findIndex(b => b.id === targetBuildingId);
+                            if (bIdx === -1) {
+                                ownerBuildings.push({
+                                    id: targetBuildingId,
+                                    name: bName,
+                                    address: bAddr,
+                                    is_verified: true,
+                                    floors: 1,
+                                    rooms: []
+                                });
+                                bIdx = ownerBuildings.length - 1;
+                            } else {
+                                ownerBuildings[bIdx].is_verified = true;
+                            }
+
+                            // 추출한 호실 번호 확인
+                            let roomNum = '101호';
+                            if (extractedData && extractedData.ocr_room_number) {
+                                roomNum = extractedData.ocr_room_number;
+                                if (!roomNum.endsWith('호')) roomNum += '호';
+                            } else if (result.extractedTenant && result.extractedTenant.room && result.extractedTenant.room !== '미지정') {
+                                roomNum = result.extractedTenant.room;
+                                if (!roomNum.endsWith('호')) roomNum += '호';
+                            }
+
+                            // 해당 호실이 캐시에 없으면 생성
+                            if (!ownerBuildings[bIdx].rooms) ownerBuildings[bIdx].rooms = [];
+                            let rIdx = ownerBuildings[bIdx].rooms.findIndex(r => r.roomNumber === roomNum);
+                            if (rIdx === -1) {
+                                ownerBuildings[bIdx].rooms.push({
+                                    roomNumber: roomNum,
+                                    type: '원룸',
+                                    room_status: '입주중'
+                                });
+                                rIdx = ownerBuildings[bIdx].rooms.length - 1;
+                            }
+
                             document.getElementById('loading-view').classList.add('hidden');
-                            // showModalAlert(...)
-                            
-                            showView('ocr-extraction-view');
-                            
-                            if (typeof executeGeminiExtraction === 'function') {
-                                setTimeout(executeGeminiExtraction, 100);
-                            }
+                            document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
+
+                            // 원래 있던 호실 상세 정보 페이지 호출
+                            await openRoomDetailPage(bIdx, rIdx, extractedData, base64Data);
                             markUserVerified();
+                            showModalAlert('계약서 인증 및 AI 정보 추출이 성공적으로 완료되었습니다!\n상세 정보 확인 후 아래의 [변경사항 저장] 버튼을 눌러주세요.');
                         } else {
                             document.getElementById('loading-view').classList.add('hidden');
                             document.getElementById('loading-view').querySelector('h3').innerText = '로그인 정보를 확인 중입니다...';
@@ -1380,6 +1407,7 @@
 
                     const payload = {
                         building_id: bId,
+                        owner_id: session.user.id,
                         room_number: rNum,
                         room_type: '미지정',
                         room_status: '입주중',
@@ -1522,6 +1550,7 @@
                     if (session) {
                         const { data, error } = await supabaseClient.from('contracts').insert([{
                             building_id: b.id,
+                            owner_id: session.user.id,
                             status: 'manual',
                             room_number: num,
                             room_count: type === '투룸' ? 2 : 1,
@@ -2015,6 +2044,7 @@
 
                                             const newContractPayload = {
                                                 building_id: b.id,
+                                                owner_id: session.user.id,
                                                 room_number: extractedRoomNum,
                                                 room_count: data.ocr_room_type === '투룸' ? 2 : 1,
                                                 room_type: data.ocr_room_type || '원룸',
@@ -2594,6 +2624,7 @@
                         // 새 계약 생성
                         const insertPayload = {
                             building_id: b.id,
+                            owner_id: session.user.id,
                             room_number: r.roomNumber,
                             room_count: roomType === '투룸' ? 2 : 1,
                             room_type: roomType,
@@ -3036,6 +3067,14 @@
                     if (typeof checkRoomDetailChanges === 'function') {
                         checkRoomDetailChanges();
                     }
+                }
+            }).open();
+        }
+
+        function execDaumPostcodeForOcrBroker() {
+            new daum.Postcode({
+                oncomplete: function(data) {
+                    document.getElementById('ocr_broker_address').value = data.address;
                 }
             }).open();
         }
@@ -3854,7 +3893,7 @@ async function executeGeminiExtraction() {
                 return;
             }
             
-            document.getElementById('loading-view').querySelector('h3').innerText = 'AI 모델을 통해 15개 항목을 추출 중입니다...';
+            document.getElementById('loading-view').querySelector('h3').innerText = 'AI 모델을 통해 16개 항목을 추출 중입니다...';
             document.getElementById('loading-view').classList.remove('hidden');
             
             try {
@@ -3875,9 +3914,9 @@ async function executeGeminiExtraction() {
                 
                 const data = result.data;
                 const fields = [
-                    'ocr_room_number', 'ocr_room_count', 'ocr_bathroom_count', 'ocr_living_room_count', 'ocr_veranda_count', 'ocr_area', 'ocr_deposit', 'ocr_monthly_rent', 'ocr_maintenance_fee', 'ocr_cleaning_fee',
-                    'ocr_contract_date', 'ocr_lease_start_date', 'ocr_lease_end_date', 'ocr_tenant_name', 'ocr_tenant_phone', 'ocr_broker_address',
-                    'ocr_broker_agency_name', 'ocr_broker_representative', 'ocr_broker_registration_no', 'ocr_broker_phone'
+                    'ocr_room_number', 'ocr_tenant_name', 'ocr_tenant_phone', 'ocr_area', 'ocr_deposit', 'ocr_monthly_rent', 'ocr_maintenance_fee', 'ocr_cleaning_fee',
+                    'ocr_contract_date', 'ocr_lease_start_date', 'ocr_lease_end_date', 'ocr_broker_agency_name', 'ocr_broker_representative', 'ocr_broker_address',
+                    'ocr_broker_phone', 'ocr_broker_registration_no'
                 ];
                 
                 fields.forEach(fieldId => {
@@ -3925,8 +3964,8 @@ async function submitExtractedContract(event) {
                 return;
             }
 
-            // Get all input values
-            const inputs = document.querySelectorAll('#ocr-fields-container input');
+            // Get all input and select values
+            const inputs = document.querySelectorAll('#ocr-fields-container input, #ocr-fields-container select');
             const contractData = {};
             inputs.forEach(input => {
                 contractData[input.id] = input.value;
@@ -3936,36 +3975,85 @@ async function submitExtractedContract(event) {
             document.getElementById('loading-view').classList.remove('hidden');
 
             try {
-                // Insert Contract
+                // 중개인 정보 저장 정책 동기화 (brokers 테이블 삽입 및 broker_id 링크 연동)
+                let brokerId = null;
+                const brokerRegNumber = contractData['ocr_broker_registration_no'] ? contractData['ocr_broker_registration_no'].trim() : '';
+                const brokerAgency = contractData['ocr_broker_agency_name'] || '';
+                const brokerRep = contractData['ocr_broker_representative'] || '';
+                const brokerAddress = contractData['ocr_broker_address'] || '';
+                const brokerPhone = contractData['ocr_broker_phone'] || '';
+
+                if (brokerRegNumber) {
+                    try {
+                        const { data: existingBrokers, error: selectErr } = await supabaseClient
+                            .from('brokers')
+                            .select('id')
+                            .eq('registration_no', brokerRegNumber);
+                        
+                        if (!selectErr && existingBrokers && existingBrokers.length > 0) {
+                            brokerId = existingBrokers[0].id;
+                            await supabaseClient.from('brokers').update({
+                                agency_name: brokerAgency,
+                                representative_name: brokerRep,
+                                address: brokerAddress,
+                                phone: brokerPhone
+                            }).eq('id', brokerId);
+                        } else {
+                            const { data: newBroker, error: insertErr } = await supabaseClient
+                                .from('brokers')
+                                .insert([{
+                                    agency_name: brokerAgency || '공인중개사사무소',
+                                    representative_name: brokerRep,
+                                    registration_no: brokerRegNumber,
+                                    address: brokerAddress,
+                                    phone: brokerPhone
+                                }])
+                                .select();
+                            
+                            if (!insertErr && newBroker && newBroker.length > 0) {
+                                brokerId = newBroker[0].id;
+                            }
+                        }
+                    } catch (bErr) {
+                        console.error('중개소 처리 예외:', bErr);
+                    }
+                }
+
+                // 계약서 이미지(Base64) 연동
+                const previewImg = document.getElementById('ocr-preview-img');
+                const newContractImg = (previewImg && previewImg.src && previewImg.src.startsWith('data:image/')) ? previewImg.src : null;
+
+                // Insert Contract Payload 동기화
+                const insertPayload = {
+                    building_id: buildingId,
+                    owner_id: session.user.id,
+                    status: 'matched',
+                    room_number: contractData['ocr_room_number'],
+                    room_count: contractData['ocr_room_type'] === '투룸' ? 2 : (contractData['ocr_room_type'] === '쓰리룸' ? 3 : 1),
+                    room_type: contractData['ocr_room_type'] || '원룸',
+                    room_status: contractData['ocr_room_status'] || '입주중',
+                    floor_type: contractData['ocr_floor_type'] || '지상',
+                    floor_no: contractData['ocr_floor_no'] || '',
+                    bathroom_count: 1,
+                    living_room_count: 0,
+                    veranda_count: 1,
+                    area: contractData['ocr_area'] ? parseFloat(contractData['ocr_area']) : null,
+                    deposit: contractData['ocr_deposit'] ? parseInt(contractData['ocr_deposit']) : 0,
+                    monthly_rent: contractData['ocr_monthly_rent'] ? parseInt(contractData['ocr_monthly_rent']) : 0,
+                    maintenance_fee: contractData['ocr_maintenance_fee'] ? parseInt(contractData['ocr_maintenance_fee']) : 0,
+                    cleaning_fee: contractData['ocr_cleaning_fee'] ? parseInt(contractData['ocr_cleaning_fee']) : 0,
+                    contract_date: contractData['ocr_contract_date'] ? contractData['ocr_contract_date'].replace(/-/g, '.') : null,
+                    lease_start_date: contractData['ocr_lease_start_date'] ? contractData['ocr_lease_start_date'].replace(/-/g, '.') : null,
+                    lease_end_date: contractData['ocr_lease_end_date'] ? contractData['ocr_lease_end_date'].replace(/-/g, '.') : null,
+                    broker_id: brokerId
+                };
+                if (newContractImg) {
+                    insertPayload.contract_image_url = newContractImg;
+                }
+
                 const { error: cError } = await supabaseClient
                     .from('contracts')
-                    .insert([{
-                        building_id: buildingId,
-                        status: 'matched',
-                        room_number: contractData['ocr_room_number'],
-                        room_count: contractData['ocr_room_count'],
-                        room_type: contractData['ocr_room_type'] || '원룸',
-                        room_status: '입주중',
-                        bathroom_count: contractData['ocr_bathroom_count'],
-                        living_room_count: contractData['ocr_living_room_count'],
-                        veranda_count: contractData['ocr_veranda_count'],
-                        area: contractData['ocr_area'],
-                        deposit: contractData['ocr_deposit'] ? parseInt(contractData['ocr_deposit']) : 0,
-                        monthly_rent: contractData['ocr_monthly_rent'] ? parseInt(contractData['ocr_monthly_rent']) : 0,
-                        maintenance_fee: contractData['ocr_maintenance_fee'] ? parseInt(contractData['ocr_maintenance_fee']) : 0,
-                        cleaning_fee: contractData['ocr_cleaning_fee'] ? parseInt(contractData['ocr_cleaning_fee']) : 0,
-                        contract_date: contractData['ocr_contract_date'],
-                        lease_period: (contractData['ocr_lease_start_date'] && contractData['ocr_lease_end_date']) ? `${contractData['ocr_lease_start_date']} ~ ${contractData['ocr_lease_end_date']}` : '',
-                        lease_start_date: contractData['ocr_lease_start_date'],
-                        lease_end_date: contractData['ocr_lease_end_date'],
-                        tenant_name: contractData['ocr_tenant_name'],
-                        tenant_phone: contractData['ocr_tenant_phone'],
-                        broker_address: contractData['ocr_broker_address'],
-                        broker_agency_name: contractData['ocr_broker_agency_name'],
-                        broker_rep_name: contractData['ocr_broker_representative'],
-                        broker_reg_number: contractData['ocr_broker_registration_no'],
-                        broker_phone: contractData['ocr_broker_phone']
-                    }]);
+                    .insert([insertPayload]);
 
                 if (cError) {
                     throw new Error('계약서 세부정보 저장 실패: ' + cError.message);
@@ -3977,13 +4065,25 @@ async function submitExtractedContract(event) {
                     if (localBIdx !== -1) {
                         const roomNum = contractData['ocr_room_number'];
                         const roomType = contractData['ocr_room_type'] || '원룸';
+                        const floorType = contractData['ocr_floor_type'] || '지상';
+                        const floorNo = contractData['ocr_floor_no'] || '';
+                        const roomStatus = contractData['ocr_room_status'] || '입주중';
                         if (roomNum) {
                             if (!ownerBuildings[localBIdx].rooms) ownerBuildings[localBIdx].rooms = [];
                             const existsIdx = ownerBuildings[localBIdx].rooms.findIndex(r => r.roomNumber === roomNum);
                             if (existsIdx !== -1) {
                                 ownerBuildings[localBIdx].rooms[existsIdx].type = roomType;
+                                ownerBuildings[localBIdx].rooms[existsIdx].floor_type = floorType;
+                                ownerBuildings[localBIdx].rooms[existsIdx].floor_no = floorNo;
+                                ownerBuildings[localBIdx].rooms[existsIdx].room_status = roomStatus;
                             } else {
-                                ownerBuildings[localBIdx].rooms.push({ roomNumber: roomNum, type: roomType });
+                                ownerBuildings[localBIdx].rooms.push({ 
+                                    roomNumber: roomNum, 
+                                    type: roomType,
+                                    floor_type: floorType,
+                                    floor_no: floorNo,
+                                    room_status: roomStatus
+                                });
                             }
                         }
                     }

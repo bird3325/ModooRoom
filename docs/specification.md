@@ -99,8 +99,22 @@
 
 ## 7. 세부 기술 사양 및 인터페이스 (Technical Specs)
 
-### 7.1 AI OCR 데이터 파싱 인터페이스 및 추출 항목 (15개)
-추출 인터페이스(UI)를 통해 아래 15개의 필수 항목을 데이터베이스에 적재합니다.
+### 7.1 AI OCR 데이터 파싱 인터페이스 및 추출 항목 (16개)
+건물 추가 및 2차 인증 페이지의 AI 추출 뷰와 호실 상세 관리의 부분 AI 추출 뷰에서 사용되는 항목 리스트를 16개 항목으로 통일하여 일관된 사용자 경험을 제공합니다.
+
+#### 레이아웃 및 디자인 통일 사양
+- **통합 레이아웃 구조**: 건물 추가 및 2차 인증 성공 시, 별도의 신규 페이지를 제작하지 않고 기존에 존재하는 **"호실 및 임대차 상세 정보 수정" 페이지(`room-detail-page`)를 그대로 직접 호출**하여 100% 동일한 디자인과 사용자 경험을 제공합니다.
+- **연동 및 저장 정책 동기화**:
+  * 2차 인증(계약서 인증) 성공 시 백그라운드에서 즉시 Gemini API를 활용한 상세 OCR 분석을 실행합니다.
+  * 신규 건물의 로컬 캐시/DB에 해당 호실 정보를 생성한 뒤, `openRoomDetailPage(bIdx, rIdx, extractedData, base64Data)`를 호출하여 원본 뷰를 그대로 로드합니다.
+  * 불러온 `room-detail-page` 내의 점선 미리보기 영역(`rd-ocr-preview-container`)에 분석 대상 계약서 이미지가 자동으로 바인딩되며, 하단 입력 폼에는 AI 추출 결과가 자동으로 기입됩니다.
+  * 최종적으로 기존 저장 단추(`변경사항 저장`)를 클릭하여 계약 정보가 안전하게 DB에 매핑 및 저장됩니다.
+  * 2차 인증 정보 직접 저장 함수(`submitExtractedContract`) 역시 `saveRoomDetailEdit`와 완전히 동일한 저장 정책이 적용됩니다: 중개업소 정보를 독립적인 `brokers` 테이블에서 조회/추가/갱신한 뒤 발급된 `broker_id`를 계약에 연동하며, 원본 계약서 이미지를 `contract_image_url` 필드에 안전하게 보존하고, RLS 보안을 준수하기 위해 `owner_id`를 정확히 설정합니다.
+
+
+
+
+
 
 ```json
 {
@@ -136,11 +150,11 @@
 ```
 
 ### 7.2 데이터베이스 스키마 (`contracts` 테이블)
-`buildings` 테이블과 1:N 또는 1:1 형태로 연동되는 `contracts` 테이블의 스펙입니다. AI 15개 항목 자동 추출 데이터를 모두 담을 수 있도록 설계되었습니다.
+`buildings` 테이블과 1:N 또는 1:1 형태로 연동되는 `contracts` 테이블의 스펙입니다. AI 16개 항목 자동 추출 데이터를 모두 담을 수 있도록 설계되었습니다.
 
 - `id` (UUID, Primary Key) : 계약서 데이터의 고유 식별자
 - `building_id` (UUID, Foreign Key -> buildings.id) : 연결된 건물의 고유 ID
-- `owner_id` (UUID, Foreign Key -> auth.users.id) : 데이터를 등록한 임대인(소유자)의 계정 ID (RLS 보안 정책 검증용)
+- `owner_id` (UUID, Foreign Key -> auth.users.id) : 데이터를 등록한 임대인(소유자)의 계정 ID (RLS 보안 정책 검증 및 대시보드 복원 조회용 필수 필드)
 - `status` (String) : 계약 상태 (예: 'matched' - 매칭 완료, 'manual' - 수동 등록)
 - `room_number` (String) : 1. 임대할 부분 (호실 등 상세 주소)
 - `room_type` (String) : 호실 타입 (예: '원룸', '투룸', '쓰리룸', '오피스텔', '미지정')
