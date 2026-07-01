@@ -16,6 +16,10 @@ const securityService = new SecurityService();
 const pendingContracts = []; // 임차인이 등록하고 임대인 승인을 기다리는 계약들
 const matchedContracts = []; // 임대인이 승인하여 매칭이 완료된 계약들
 const registeredBuildings = []; // 임대인이 등록한 건물 목록
+const complaints = [
+    { id: 'c-1', title: '302호 세면대 배수 트랩 교체', description: '세면대 아래 배수관에서 물이 샙니다. 배수 트랩 교체 요망.', status: '수리 진행중' },
+    { id: 'c-2', title: '101호 도어락 작동 불량', description: '가끔 비밀번호를 눌러도 열리지 않고 경고음이 납니다. 배배터리 방전 의심.', status: '접수 완료' }
+];
 let supabaseConfig = { url: '', key: '' }; // Supabase 연동 설정
 let publicDataApiKey = ''; // 공공데이터포털 API Key
 
@@ -86,6 +90,98 @@ const server = http.createServer(async (req, res) => {
   } else if (req.method === 'GET' && parsedUrl.pathname === '/api/inventory') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(inventoryService.getItemsStatus()));
+  } else if (req.method === 'POST' && parsedUrl.pathname === '/api/inventory/add') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const { name, stock, minRequired, imageUrl } = JSON.parse(body);
+        const newItem = inventoryService.addItem(name, stock, minRequired, imageUrl);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, item: newItem }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+  } else if (req.method === 'POST' && parsedUrl.pathname === '/api/inventory/adjust') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const { itemId, amount } = JSON.parse(body);
+        const desc = amount > 0 ? `수동 재고 입고 (+${amount})` : `수동 재고 출고 (${amount})`;
+        const updatedItem = inventoryService.updateStock(itemId, amount, desc);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, item: updatedItem }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/inventory/history') {
+    const itemId = parsedUrl.searchParams.get('itemId');
+    if (!itemId) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({ success: false, error: 'itemId 파라미터가 누락되었습니다.' }));
+    }
+    const txs = inventoryService.getTransactions(itemId);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(txs));
+  } else if (req.method === 'GET' && parsedUrl.pathname === '/api/complaints') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(complaints));
+  } else if (req.method === 'POST' && parsedUrl.pathname === '/api/complaints/add') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const { title, description } = JSON.parse(body);
+        const newComplaint = {
+          id: 'c-' + (complaints.length + 1) + '-' + Math.random().toString(36).substr(2, 5),
+          title: title,
+          description: description,
+          status: '접수 완료'
+        };
+        complaints.push(newComplaint);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, complaint: newComplaint }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+  } else if (req.method === 'POST' && parsedUrl.pathname === '/api/complaints/complete') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const { complaintId, materialId } = JSON.parse(body);
+        const comp = complaints.find(c => c.id === complaintId);
+        if (!comp) {
+          res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({ success: false, error: '존재하지 않는 하자요청입니다.' }));
+        }
+        
+        comp.status = '완료';
+        let stockUpdated = false;
+        
+        if (materialId) {
+          try {
+            inventoryService.updateStock(materialId, -1, `${comp.title} 하자 보수 완료 교체 사용`);
+            stockUpdated = true;
+          } catch (invErr) {
+            console.error('자재 재고 차감 에러:', invErr);
+          }
+        }
+        
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, stockUpdated }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
   } else if (req.method === 'GET' && parsedUrl.pathname === '/api/ocr') {
     const ocrResult = await OcrService.parseContractImage('uploaded_file.jpg');
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });

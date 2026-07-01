@@ -211,9 +211,20 @@ function renderOwnerBuildings() {
                 
                 if (!b.rooms) b.rooms = [];
                 matchedTenantsForBuilding.forEach(function(m) {
-                    const exists = b.rooms.some(function(r) { return r.roomNumber === m.room; });
-                    if (!exists && m.room) {
-                        b.rooms.push({ roomNumber: m.room, type: '미지정' });
+                    const foundRoom = b.rooms.find(function(r) { return r.roomNumber === m.room; });
+                    if (foundRoom) {
+                        if (m.roomType && m.roomType !== '미지정') {
+                            foundRoom.type = m.roomType;
+                        }
+                        foundRoom.room_status = m.roomStatus || m.room_status || foundRoom.room_status;
+                        foundRoom.roomStatus = m.roomStatus || m.room_status || foundRoom.roomStatus;
+                    } else if (m.room) {
+                        b.rooms.push({ 
+                            roomNumber: m.room, 
+                            type: m.roomType || '미지정',
+                            room_status: m.roomStatus || m.room_status || '공실',
+                            roomStatus: m.roomStatus || m.room_status || '공실'
+                        });
                     }
                 });
 
@@ -574,7 +585,7 @@ async function addRoomFromPage(idx) {
             if (!num) return showModalAlert('호실 번호를 입력해주세요.');
             const b = ownerBuildings[idx];
             if (!b.rooms) b.rooms = [];
-            b.rooms.push({ roomNumber: num, type: type });
+            b.rooms.push({ roomNumber: num, type: type, room_status: '공실', roomStatus: '공실' });
 
             if (typeof supabaseClient !== 'undefined' && supabaseClient && b.id) {
                 try {

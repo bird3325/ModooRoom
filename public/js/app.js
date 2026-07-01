@@ -379,6 +379,10 @@
             if(document.getElementById('auth-page')) document.getElementById('auth-page').classList.add('hidden');
             if(document.getElementById('add-building-view')) document.getElementById('add-building-view').classList.add('hidden');
             if(document.getElementById('building-management-page')) document.getElementById('building-management-page').classList.add('hidden');
+            if(document.getElementById('owner-add-material-view')) document.getElementById('owner-add-material-view').classList.add('hidden');
+            if(document.getElementById('owner-material-history-view')) document.getElementById('owner-material-history-view').classList.add('hidden');
+            if(document.getElementById('owner-add-complaint-view')) document.getElementById('owner-add-complaint-view').classList.add('hidden');
+            if(document.getElementById('owner-complete-complaint-view')) document.getElementById('owner-complete-complaint-view').classList.add('hidden');
             if(document.getElementById('room-detail-page')) {
                 document.getElementById('room-detail-page').classList.add('hidden');
                 // 호실 수정 뷰 닫힘/숨김 처리 시 첨부 이미지 및 OCR UI 초기화
@@ -565,6 +569,7 @@
                     renderOwnerBuildings();
                 }
                 loadInventory();
+                loadComplaints();
                 checkPendingInvites();
                 renderOwnerBuildings();
             } else if (viewName === 'add-building-view') {
@@ -598,6 +603,14 @@
                 if (document.getElementById('room-detail-page')) {
                     document.getElementById('room-detail-page').classList.remove('hidden');
                 }
+            } else if (viewName === 'owner-add-material-view') {
+                if(document.getElementById('owner-add-material-view')) document.getElementById('owner-add-material-view').classList.remove('hidden');
+            } else if (viewName === 'owner-material-history-view') {
+                if(document.getElementById('owner-material-history-view')) document.getElementById('owner-material-history-view').classList.remove('hidden');
+            } else if (viewName === 'owner-add-complaint-view') {
+                if(document.getElementById('owner-add-complaint-view')) document.getElementById('owner-add-complaint-view').classList.remove('hidden');
+            } else if (viewName === 'owner-complete-complaint-view') {
+                if(document.getElementById('owner-complete-complaint-view')) document.getElementById('owner-complete-complaint-view').classList.remove('hidden');
             }
         }
 
@@ -1152,8 +1165,15 @@
                         if (m.roomType && m.roomType !== '미지정') {
                             foundRoom.type = m.roomType;
                         }
+                        foundRoom.room_status = m.roomStatus || m.room_status || foundRoom.room_status;
+                        foundRoom.roomStatus = m.roomStatus || m.room_status || foundRoom.roomStatus;
                     } else if (m.room) {
-                        b.rooms.push({ roomNumber: m.room, type: m.roomType || '미지정' });
+                        b.rooms.push({ 
+                            roomNumber: m.room, 
+                            type: m.roomType || '미지정',
+                            room_status: m.roomStatus || m.room_status || '공실',
+                            roomStatus: m.roomStatus || m.room_status || '공실'
+                        });
                     }
                 });
 
@@ -1231,7 +1251,16 @@
                 if (b.rooms && b.rooms.length > 0) {
                     totalRooms += b.rooms.length;
                     b.rooms.forEach(r => {
-                        if (r.room_status === '입주중' || r.roomStatus === '입주중' || r.status === 'manual') {
+                        // activeTenantsData에서 해당 건물/호실의 최신 매칭 상태 파악
+                        const matched = (typeof activeTenantsData !== 'undefined' ? activeTenantsData : []).find(m => {
+                            return m.room === r.roomNumber && (m.building_id === b.id || m.buildingId === b.id || (m.address && b.address && m.address.trim() === b.address.trim()));
+                        });
+                        
+                        // 방의 상태가 '입주중'이거나, 매칭된 임차인이 있고 상태가 'vacant'가 아닌 경우 입주중으로 판단
+                        const isOccupied = (r.room_status === '입주중' || r.roomStatus === '입주중') || 
+                                           (matched && matched.status !== 'vacant' && (matched.roomStatus === '입주중' || matched.room_status === '입주중' || (matched.tenantName && matched.tenantName !== '이름 없음' && matched.tenantName.trim() !== '')));
+                        
+                        if (isOccupied) {
                             occupiedRooms++;
                         }
                     });
@@ -1374,8 +1403,15 @@
                     if (m.roomType && m.roomType !== '미지정') {
                         foundRoom.type = m.roomType;
                     }
+                    foundRoom.room_status = m.roomStatus || m.room_status || foundRoom.room_status;
+                    foundRoom.roomStatus = m.roomStatus || m.room_status || foundRoom.roomStatus;
                 } else if (m.room) {
-                    b.rooms.push({ roomNumber: m.room, type: m.roomType || '미지정' });
+                    b.rooms.push({ 
+                        roomNumber: m.room, 
+                        type: m.roomType || '미지정',
+                        room_status: m.roomStatus || m.room_status || '공실',
+                        roomStatus: m.roomStatus || m.room_status || '공실'
+                    });
                 }
             });
 
@@ -1595,7 +1631,7 @@
             if (!num) return showModalAlert('호실 번호를 입력해주세요.');
             const b = ownerBuildings[idx];
             if (!b.rooms) b.rooms = [];
-            b.rooms.push({ roomNumber: num, type: type });
+            b.rooms.push({ roomNumber: num, type: type, room_status: '공실', roomStatus: '공실' });
             
             if (typeof supabaseClient !== 'undefined' && supabaseClient && b.id) {
                 try {
@@ -3052,9 +3088,38 @@
 
         function handleComplaintSubmit(e) {
             e.preventDefault();
-            showModalAlert('민원이 성공적으로 접수되었습니다. 임대인에게 알림이 발송됩니다.');
-            document.getElementById('complaint-title').value = '';
-            document.getElementById('complaint-desc').value = '';
+            const titleInput = document.getElementById('complaint-title');
+            const descInput = document.getElementById('complaint-desc');
+            const fileInput = document.getElementById('complaint-file');
+            
+            const rawTitle = titleInput.value.trim();
+            const description = descInput.value.trim();
+            
+            // 매칭된 방이 있다면 제목에 추가
+            const roomElem = document.getElementById('matched-room');
+            const roomText = roomElem ? roomElem.innerText.trim() : '';
+            const title = roomText ? `[${roomText}] ${rawTitle}` : rawTitle;
+
+            fetch('/api/complaints/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, description })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showModalAlert('민원이 성공적으로 접수되었습니다. 임대인 대시보드에 실시간 반영됩니다.');
+                    titleInput.value = '';
+                    descInput.value = '';
+                    if (fileInput) fileInput.value = '';
+                } else {
+                    showModalAlert('민원 접수 실패: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showModalAlert('서버 통신 중 오류가 발생했습니다.');
+            });
         }
 
         function handleAddBuildingFileChange(event) {
@@ -3390,16 +3455,360 @@
                 .then(res => res.json())
                 .then(data => {
                     const list = document.getElementById('inventory-list');
-                    list.innerHTML = data.map(item => `
-                        <div class="inventory-item">
-                            <div>
-                                <h4>${item.name}</h4>
-                                <span style="font-size:12px; color:#718096;">재고: ${item.stock}개</span>
+                    if (!list) return;
+                    list.innerHTML = data.map(item => {
+                        const imgUrl = item.image_url || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2EwYWVjMCI+PHBhdGggZD0iTTE5IDNINWMtMS4xIDAtMiAuOS0yIDJ2MTRjMCAxLjEuOSAyIDIgMmgxNGMxLjEgMCAyLS45IDItMlY1YzAtMS4xLS45LTItMi0yeW0tMSAxNkg2di0yaDEydjJ6bTAtNEg2di0yaDEydjJ6bTAtNEg2VjhoMTJ2NHoiLz48L3N2Zz4=';
+                        return `
+                            <div class="inventory-item" style="display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid #edf2f7;">
+                                <img src="${imgUrl}" style="width: 42px; height: 42px; border-radius: 8px; object-fit: contain; border: 1px solid #edf2f7; background: #f7fafc; padding: 3px; box-sizing: border-box;" />
+                                <div style="flex: 1;">
+                                    <h4 onclick="openMaterialHistoryModal('${item.id}', '${item.name}')" style="margin: 0; font-size: 14px; font-weight: 600; color: #2d3748; cursor: pointer; display: inline-block; transition: color 0.15s;" onmouseover="this.style.color='var(--point-orange)'" onmouseout="this.style.color='#2d3748'">${item.name} <i class="fa-solid fa-clock-rotate-left" style="font-size: 10px; color: #a0aec0; margin-left: 4px;"></i></h4>
+                                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                                        <span style="font-size: 12px; color: #718096; display: inline-flex; align-items: center; gap: 4px;">
+                                            재고:
+                                            <span style="display: inline-flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden; background: #f7fafc;">
+                                                <button onclick="adjustInventoryStock('${item.id}', -1)" style="border: none; background: #edf2f7; color: #4a5568; cursor: pointer; padding: 2px 6px; font-size: 11px; font-weight: bold; line-height: 1;">-</button>
+                                                <span style="padding: 0 8px; font-weight: 600; color: #2d3748; min-width: 14px; text-align: center; font-size: 11px;">${item.stock}</span>
+                                                <button onclick="adjustInventoryStock('${item.id}', 1)" style="border: none; background: #edf2f7; color: #4a5568; cursor: pointer; padding: 2px 6px; font-size: 11px; font-weight: bold; line-height: 1;">+</button>
+                                            </span>
+                                            개
+                                        </span>
+                                        <a href="https://search.shopping.naver.com/search/all?query=${encodeURIComponent(item.name)}" target="_blank" style="font-size: 11px; color: var(--primary-light-blue); text-decoration: none; display: inline-flex; align-items: center; gap: 3px;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                                            <i class="fa-solid fa-cart-shopping" style="font-size: 10px;"></i> 최저가 구매
+                                        </a>
+                                    </div>
+                                </div>
+                                <span class="badge ${item.is_low_stock ? 'badge-orange' : 'badge-blue'}">${item.badge_text}</span>
                             </div>
-                            <span class="badge ${item.is_low_stock ? 'badge-orange' : 'badge-blue'}">${item.badge_text}</span>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 });
+        }
+
+        // 수동 재고 증감 처리 함수
+        function adjustInventoryStock(itemId, amount) {
+            fetch('/api/inventory/adjust', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ itemId: itemId, amount: amount })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    loadInventory();
+                } else {
+                    showModalAlert('재고 조정 실패: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showModalAlert('서버 통신 중 오류가 발생했습니다.');
+            });
+        }
+
+        // 자재 추가 모달 제어 및 등록
+        function openAddMaterialModal() {
+            document.getElementById('am-name').value = '';
+            document.getElementById('am-stock').value = '0';
+            document.getElementById('am-min-required').value = '2';
+            const imgInput = document.getElementById('am-image');
+            if (imgInput) imgInput.value = '';
+            showView('owner-add-material-view');
+        }
+
+        // 자재 추가 모달 비활성화
+        function closeAddMaterialModal() {
+            showView('owner-app');
+        }
+
+        // 신규 자재 및 이미지 등록 처리
+        function submitAddMaterial() {
+            const name = document.getElementById('am-name').value.trim();
+            const stock = document.getElementById('am-stock').value.trim();
+            const minRequired = document.getElementById('am-min-required').value.trim();
+            const fileInput = document.getElementById('am-image');
+
+            if (!name) {
+                showModalAlert('자재명을 입력해주세요.');
+                return;
+            }
+
+            const sendPayload = (imageUrl = '') => {
+                fetch('/api/inventory/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        stock: parseInt(stock) || 0,
+                        minRequired: parseInt(minRequired) || 0,
+                        imageUrl: imageUrl
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showModalAlert('신규 자재 품목이 등록되었습니다.');
+                        closeAddMaterialModal();
+                        loadInventory();
+                    } else {
+                        showModalAlert('자재 등록 실패: ' + data.error);
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    showModalAlert('서버 통신 중 오류가 발생했습니다.');
+                });
+            };
+
+            if (fileInput && fileInput.files.length > 0) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    sendPayload(e.target.result);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                sendPayload('');
+            }
+        }
+
+        // 히스토리 모달 제어 및 로드
+        function openMaterialHistoryModal(itemId, itemName) {
+            const nameElem = document.getElementById('mh-item-name');
+            if (nameElem) nameElem.innerText = itemName;
+
+            const listElem = document.getElementById('mh-history-list');
+            if (listElem) listElem.innerHTML = '<p style="font-size: 13px; color: #718096; padding: 15px; text-align:center;">이력을 불러오는 중...</p>';
+
+            fetch(`/api/inventory/history?itemId=${encodeURIComponent(itemId)}`)
+                .then(res => res.json())
+                .then(txs => {
+                    if (!listElem) return;
+                    if (txs.length === 0) {
+                        listElem.innerHTML = '<p style="font-size: 13px; color: #718096; padding: 15px; text-align:center;">입출고 이력이 없습니다.</p>';
+                        return;
+                    }
+
+                    listElem.innerHTML = txs.map(t => {
+                        const isPlus = t.amount >= 0;
+                        const badgeColor = t.type === 'in' ? '#2b6cb0' : '#e53e3e';
+                        const badgeBg = t.type === 'in' ? '#ebf8ff' : '#fff5f5';
+                        const sign = isPlus ? '+' : '';
+                        
+                        return `
+                            <div style="padding: 12px 10px; border-bottom: 1px solid #edf2f7; display: flex; flex-direction: column; gap: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 11px; color: #a0aec0;">${t.date}</span>
+                                    <span style="font-size: 11px; font-weight: 700; color: ${badgeColor}; background: ${badgeBg}; padding: 2px 6px; border-radius: 4px;">
+                                        ${sign}${t.amount}개 (${t.type === 'in' ? '입고' : '출고'})
+                                    </span>
+                                </div>
+                                <div style="font-size: 13px; color: #2d3748; font-weight: 500;">
+                                    ${t.description}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                })
+                .catch(err => {
+                    console.error(err);
+                    if (listElem) listElem.innerHTML = '<p style="font-size: 13px; color: #e53e3e; padding: 15px; text-align:center;">이력을 불러오지 못했습니다.</p>';
+                });
+
+            showView('owner-material-history-view');
+        }
+
+        function closeMaterialHistoryModal() {
+            showView('owner-app');
+        }
+
+        // 하자보수 목록 로드 및 렌더링
+        function loadComplaints() {
+            fetch('/api/complaints')
+                .then(res => res.json())
+                .then(data => {
+                    const list = document.getElementById('complaint-list');
+                    if (!list) return;
+                    if (data.length === 0) {
+                        list.innerHTML = '<p style="font-size: 13px; color: #718096; padding: 10px;">접수된 하자보수 요청이 없습니다.</p>';
+                        return;
+                    }
+                    list.innerHTML = data.map((comp) => {
+                        const isDone = comp.status === '완료';
+                        const statusColor = isDone ? '#319795' : 'var(--point-orange)';
+                        const statusBg = isDone ? '#e6fffa' : '#fff5eb';
+                        const dotColor = isDone ? '#319795' : 'var(--point-orange)';
+                        const dotShadow = isDone ? '#b2f5ea' : '#ffedd5';
+                        
+                        let actionButton = '';
+                        if (!isDone) {
+                            actionButton = `<button class="btn" style="padding: 4px 8px; font-size: 11px; margin-top: 8px; background: var(--primary-light-blue); color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="openCompleteComplaintModal('${comp.id}')">완료 처리</button>`;
+                        }
+                        
+                        return `
+                            <div style="position: relative; padding-left: 24px; border-left: 2px solid #e2e8f0; margin-left: 10px; padding-bottom: 5px;">
+                                <div style="position: relative;">
+                                    <div style="position: absolute; left: -30px; top: 3px; width: 10px; height: 10px; border-radius: 50%; background: ${dotColor}; box-shadow: 0 0 0 4px ${dotShadow};"></div>
+                                    <span style="font-size: 10px; font-weight: 700; color: ${statusColor}; background: ${statusBg}; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 6px;">${comp.status}</span>
+                                    <h5 style="font-size: 14px; font-weight: 600; color: #2d3748; margin: 0 0 4px 0;">${comp.title}</h5>
+                                    <p style="font-size: 12px; color: #718096; margin: 0; line-height: 1.5;">${comp.description}</p>
+                                    ${actionButton}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                });
+        }
+
+        // 하자보수 완료 처리 모달 제어 및 API 전송
+        function openCompleteComplaintModal(complaintId) {
+            document.getElementById('cc-complaint-id').value = complaintId;
+            
+            // 자재 목록 로드하여 셀렉트 박스 바인딩
+            fetch('/api/inventory')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('cc-material-select');
+                    if (select) {
+                        select.innerHTML = '<option value="">사용 안 함 / 기타</option>' + 
+                            data.map(item => `<option value="${item.id}">${item.name} (현재 재고: ${item.stock}개)</option>`).join('');
+                    }
+                });
+                
+            showView('owner-complete-complaint-view');
+        }
+        
+        function closeCompleteComplaintModal() {
+            showView('owner-app');
+        }
+        
+        function submitCompleteComplaint() {
+            const complaintId = document.getElementById('cc-complaint-id').value;
+            const materialId = document.getElementById('cc-material-select').value;
+            
+            fetch('/api/complaints/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    complaintId: complaintId,
+                    materialId: materialId
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showModalAlert('하자보수 완료 처리가 정상적으로 완료되었습니다.');
+                    closeCompleteComplaintModal();
+                    loadComplaints();
+                    loadInventory();
+                } else {
+                    showModalAlert('완료 처리 중 오류가 발생했습니다: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showModalAlert('서버 통신 중 오류가 발생했습니다.');
+            });
+        }
+
+        // 하자 수동 등록 모달 제어 및 등록
+        function openAddComplaintModal() {
+            const buildingGroup = document.getElementById('ac-building-group');
+            const buildingSelect = document.getElementById('ac-building-select');
+            const roomSelect = document.getElementById('ac-room-select');
+            
+            document.getElementById('ac-title').value = '';
+            document.getElementById('ac-desc').value = '';
+            
+            if (typeof ownerBuildings === 'undefined' || ownerBuildings.length === 0) {
+                showModalAlert('등록된 건물이 없습니다. 건물 관리에서 먼저 건물을 추가해 주세요.');
+                return;
+            }
+
+            // 건물 목록 세팅
+            buildingSelect.innerHTML = ownerBuildings.map((b, idx) => `<option value="${idx}">${b.name}</option>`).join('');
+
+            // 건물이 1개인 경우 건물 선택 감춤, 2개 이상인 경우 노출
+            if (ownerBuildings.length === 1) {
+                buildingGroup.style.display = 'none';
+            } else {
+                buildingGroup.style.display = 'block';
+            }
+
+            // 첫 번째 건물 기준 호실 목록 세팅
+            onComplaintBuildingChange();
+            
+            showView('owner-add-complaint-view');
+        }
+
+        function onComplaintBuildingChange() {
+            const buildingSelect = document.getElementById('ac-building-select');
+            const roomSelect = document.getElementById('ac-room-select');
+            const selectedIdx = parseInt(buildingSelect.value);
+            
+            if (isNaN(selectedIdx) || !ownerBuildings[selectedIdx]) {
+                roomSelect.innerHTML = '<option value="">등록된 호실 없음</option>';
+                return;
+            }
+
+            const b = ownerBuildings[selectedIdx];
+            if (!b.rooms || b.rooms.length === 0) {
+                roomSelect.innerHTML = '<option value="">등록된 호실 없음</option>';
+                return;
+            }
+
+            roomSelect.innerHTML = b.rooms.map(r => `<option value="${r.roomNumber}">${r.roomNumber}호</option>`).join('') 
+                + '<option value="공용부">공용부</option>';
+        }
+
+        function closeAddComplaintModal() {
+            showView('owner-app');
+        }
+
+        function submitAddComplaint() {
+            const buildingSelect = document.getElementById('ac-building-select');
+            const roomSelect = document.getElementById('ac-room-select');
+            const rawTitle = document.getElementById('ac-title').value.trim();
+            const description = document.getElementById('ac-desc').value.trim();
+
+            if (!rawTitle) {
+                showModalAlert('하자 내용을 입력해주세요.');
+                return;
+            }
+
+            const selectedIdx = parseInt(buildingSelect.value);
+            const b = ownerBuildings[selectedIdx];
+            const roomVal = roomSelect.value;
+            
+            // 호실 정보를 제목 접두사에 매칭
+            // 건물이 여러 개인 경우 건물명도 함께 표시 (예: "[그린빌라 302호] 세면대 누수")
+            let titlePrefix = '';
+            if (ownerBuildings.length > 1 && b) {
+                titlePrefix = `[${b.name} ${roomVal === '공용부' ? '공용부' : roomVal + '호'}] `;
+            } else {
+                titlePrefix = `[${roomVal === '공용부' ? '공용부' : roomVal + '호'}] `;
+            }
+            
+            const title = titlePrefix + rawTitle;
+
+            fetch('/api/complaints/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, description })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showModalAlert('하자보수 요청이 수동 등록되었습니다.');
+                    closeAddComplaintModal();
+                    loadComplaints();
+                } else {
+                    showModalAlert('등록 실패: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showModalAlert('서버 통신 중 오류가 발생했습니다.');
+            });
         }
 
         let apiSigunguCd = '';
